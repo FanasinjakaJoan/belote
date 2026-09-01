@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no" />
+<meta name="theme-color" content="#0a1a14" />
+<title>Belote Royale — online belote card game</title>
+<meta name="description" content="Belote Royale — play classic French belote online with friends or against AI." />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26'>♠</text></svg>">
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+<div id="shake">
+  <div id="app">
+
+    <!-- ══════════════════ TABLE ══════════════════ -->
+    <main id="table" class="screen" aria-label="Belote table">
+      <div class="felt"></div>
+      <div class="felt-ring"></div>
+
+      <header id="hud">
+        <div class="hud-side">
+          <button class="icon-btn" id="btnMenu" title="Menu (Esc)" aria-label="Menu">☰</button>
+          <button class="icon-btn" id="btnSound" title="Sound (M)" aria-label="Sound">♪</button>
+          <button class="icon-btn" id="btnEmote" title="Emote" aria-label="Emote" hidden>☺</button>
+        </div>
+        <div class="scoreboard">
+          <div class="team us" id="teamUs">
+            <span class="tlabel">YOUR TEAM</span>
+            <span class="tscore" id="scoreUs">0</span>
+          </div>
+          <div class="score-sep">
+            <div class="round-chip"><span id="roundNo">1</span></div>
+            <div class="target-chip">to <span id="targetVal">501</span></div>
+          </div>
+          <div class="team them" id="teamThem">
+            <span class="tlabel">RIVALS</span>
+            <span class="tscore" id="scoreThem">0</span>
+          </div>
+        </div>
+        <div class="hud-side right">
+          <div class="trump-badge" id="trumpBadge" title="Trump suit">
+            <span class="tb-label">TRUMP</span><span class="tb-suit" id="trumpSuit">—</span>
+          </div>
+        </div>
+      </header>
+
+      <div id="board">
+        <div class="seat seat-n" id="seat-n"><div class="avatar"><span class="ava-glyph">♦</span></div><div class="pname">—</div><div class="pmeta"><span class="cards-left">8</span></div><div class="bubble"></div></div>
+        <div class="seat seat-w" id="seat-w"><div class="avatar"><span class="ava-glyph">♣</span></div><div class="pname">—</div><div class="pmeta"><span class="cards-left">8</span></div><div class="bubble"></div></div>
+        <div class="seat seat-e" id="seat-e"><div class="avatar"><span class="ava-glyph">♥</span></div><div class="pname">—</div><div class="pmeta"><span class="cards-left">8</span></div><div class="bubble"></div></div>
+        <div class="seat seat-s" id="seat-s"><div class="avatar"><span class="ava-glyph">♠</span></div><div class="pname">You</div><div class="pmeta"><span class="cards-left">8</span></div><div class="bubble"></div></div>
+
+        <div id="opp-n" class="opp-hand horiz"></div>
+        <div id="opp-w" class="opp-hand vert"></div>
+        <div id="opp-e" class="opp-hand vert"></div>
+
+        <div id="trick">
+          <div class="slot slot-s" data-seat="s"></div>
+          <div class="slot slot-w" data-seat="w"></div>
+          <div class="slot slot-n" data-seat="n"></div>
+          <div class="slot slot-e" data-seat="e"></div>
+          <div id="tableEmblem">♠<span>BELOTE</span>♠</div>
+        </div>
+
+        <div id="pointsFlash"></div>
+      </div>
+
+      <div id="handWrap">
+        <div id="hand" role="listbox" aria-label="Your hand"></div>
+      </div>
+
+      <div id="emotes" class="emote-bar">
+        <button data-e="Nice!">👏</button><button data-e="Oh no…">😱</button>
+        <button data-e="Good luck!">🍀</button><button data-e="Hurry up!">⏳</button>
+        <button data-e="Well played">🎩</button><button data-e="Ouch!">💥</button>
+      </div>
+      <div id="toast"></div>
+      <div id="turnBanner"></div>
+    </main>
+
+    <!-- ══════════════════ START SCREEN ══════════════════ -->
+    <section id="start" class="screen overlay active">
+      <div class="deco-cards" aria-hidden="true"></div>
+      <div class="panel wide">
+        <h1 class="logo">BELOTE <em>Royale</em></h1>
+        <p class="tagline">Classic French belote — 32 cards, trumps, capots &amp; contracts.</p>
+
+        <div class="menu-grid">
+          <button class="big-btn primary" id="btnSolo">
+            <span class="bb-key">1</span>
+            <span class="bb-title">Play vs AI</span>
+            <span class="bb-sub">Instant table, three bots</span>
+          </button>
+          <button class="big-btn" id="btnCreate">
+            <span class="bb-key">2</span>
+            <span class="bb-title">Create table</span>
+            <span class="bb-sub">Invite 1–3 friends by code</span>
+          </button>
+          <button class="big-btn" id="btnJoin">
+            <span class="bb-key">3</span>
+            <span class="bb-title">Join table</span>
+            <span class="bb-sub">Enter a 4-letter code</span>
+          </button>
+          <button class="big-btn" id="btnHow">
+            <span class="bb-key">4</span>
+            <span class="bb-title">How to play</span>
+            <span class="bb-sub">Rules &amp; controls</span>
+          </button>
+        </div>
+
+        <div class="opts">
+          <label class="opt">Name
+            <input id="inpName" maxlength="14" placeholder="Player" autocomplete="off" />
+          </label>
+          <label class="opt">Target
+            <select id="selTarget"><option>301</option><option selected>501</option><option>701</option><option>1001</option></select>
+          </label>
+          <label class="opt">AI skill
+            <select id="selDiff"><option value="easy">Easy</option><option value="normal" selected>Normal</option><option value="hard">Hard</option></select>
+          </label>
+        </div>
+
+        <div class="hs-block">
+          <h2>Hall of Fame</h2>
+          <table id="hsTable"><tbody><tr><td class="empty">No games yet — win one!</td></tr></tbody></table>
+        </div>
+        <p class="foot">Keys: ← → pick · Enter play · P pause · Esc menu</p>
+      </div>
+    </section>
+
+    <!-- ══════════════════ JOIN ══════════════════ -->
+    <section id="joinScreen" class="screen overlay">
+      <div class="panel">
+        <h2>Join a table</h2>
+        <input id="inpCode" class="code-input" maxlength="4" placeholder="CODE" autocomplete="off" spellcheck="false" />
+        <div class="row">
+          <button class="big-btn primary" id="btnJoinGo">Join</button>
+          <button class="big-btn" id="btnQuick">Quick match</button>
+        </div>
+        <div id="roomList" class="room-list"></div>
+        <button class="ghost-btn" data-back>Back</button>
+      </div>
+    </section>
+
+    <!-- ══════════════════ LOBBY ══════════════════ -->
+    <section id="lobby" class="screen overlay">
+      <div class="panel">
+        <h2>Table <span class="code-badge" id="lobbyCode">----</span></h2>
+        <p class="tagline">Share the code. Empty seats are filled by AI.</p>
+        <div class="lobby-seats" id="lobbySeats"></div>
+        <div class="row">
+          <button class="big-btn primary" id="btnStartGame">Start game</button>
+          <button class="ghost-btn" id="btnCopy">Copy code</button>
+        </div>
+        <button class="ghost-btn" data-back>Leave</button>
+      </div>
+    </section>
+
+    <!-- ══════════════════ BID ══════════════════ -->
+    <div id="bidPanel" class="floating-panel">
+      <div class="bid-inner">
+        <div class="bid-head"><span id="bidTitle">Take this trump?</span></div>
+        <div class="bid-body">
+          <div id="upcardHolder"></div>
+          <div class="bid-actions" id="bidActions"></div>
+        </div>
+        <div class="bid-hint" id="bidHint">Y / N · tap to choose</div>
+      </div>
+    </div>
+
+    <!-- ══════════════════ PAUSE ══════════════════ -->
+    <section id="pause" class="screen overlay">
+      <div class="panel">
+        <h2>Paused</h2>
+        <div class="row col">
+          <button class="big-btn primary" id="btnResume">Resume</button>
+          <button class="big-btn" id="btnRestart">Restart game</button>
+          <button class="big-btn" id="btnQuit">Quit to menu</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══════════════════ ROUND END ══════════════════ -->
+    <section id="roundEnd" class="screen overlay">
+      <div class="panel">
+        <h2 id="reTitle">Round over</h2>
+        <div id="reBody" class="result-body"></div>
+        <button class="big-btn primary" id="btnNextRound">Next round <span class="bb-key">↵</span></button>
+      </div>
+    </section>
+
+    <!-- ══════════════════ GAME OVER ══════════════════ -->
+    <section id="gameOver" class="screen overlay">
+      <div class="panel">
+        <h2 id="goTitle">Victory!</h2>
+        <div id="goBody" class="result-body"></div>
+        <div class="row">
+          <button class="big-btn primary" id="btnAgain">Play again <span class="bb-key">R</span></button>
+          <button class="big-btn" id="btnMenu2">Menu</button>
+        </div>
+        <div class="hs-block"><h2>Hall of Fame</h2><table id="hsTable2"><tbody></tbody></table></div>
+      </div>
+    </section>
+
+    <!-- ══════════════════ HOW TO ══════════════════ -->
+    <section id="how" class="screen overlay">
+      <div class="panel wide scrolly">
+        <h2>How to play</h2>
+        <div class="how-grid">
+          <div>
+            <h3>The goal</h3>
+            <p>Two teams of two (you + the player across). First team to the target score wins. A deal is worth <b>162</b> points.</p>
+            <h3>Bidding</h3>
+            <p>One card is turned up. In turn, <b>take</b> it as trump or <b>pass</b>. If everyone passes, a second round lets you name any other suit. The taker's team must score more than the defenders, or they go <b>dedans</b> and lose everything.</p>
+            <h3>Card order</h3>
+            <p><b>Trump:</b> J&nbsp;20 · 9&nbsp;14 · A&nbsp;11 · 10&nbsp;10 · K&nbsp;4 · Q&nbsp;3 · 8 · 7<br/>
+               <b>Plain:</b> A&nbsp;11 · 10&nbsp;10 · K&nbsp;4 · Q&nbsp;3 · J&nbsp;2 · 9 · 8 · 7</p>
+          </div>
+          <div>
+            <h3>Playing</h3>
+            <p>Follow suit if you can. If trump is led you must play a higher trump when possible. If you cannot follow, you must trump — unless your partner is already winning the trick.</p>
+            <h3>Bonuses</h3>
+            <p><b>Belote &amp; Rebelote</b> — hold K+Q of trump and play both: +20, automatic.<br/>
+               <b>Dix de der</b> — last trick: +10.<br/>
+               <b>Capot</b> — all eight tricks: 252.</p>
+            <h3>Controls</h3>
+            <p><b>Keyboard:</b> ← → select · ↵/Space play · 1–8 quick play · Y/N bid · P pause · R restart · M mute · Esc menu<br/>
+               <b>Touch:</b> tap to lift a card, tap again or flick up to play.</p>
+          </div>
+        </div>
+        <button class="big-btn primary" data-back>Got it</button>
+      </div>
+    </section>
+
+    <div id="conn" class="conn"></div>
+  </div>
+  <canvas id="fx"></canvas>
+</div>
+<script src="js/store.js"></script>
+<script src="js/fx.js"></script>
+<script src="js/cards.js"></script>
+<script src="js/net.js"></script>
+<script src="js/game.js"></script>
+</body>
+</html>
