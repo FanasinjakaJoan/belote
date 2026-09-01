@@ -5,6 +5,7 @@
 const fs = require('fs');
 const path = require('path');
 const { spawnSync } = require('child_process');
+const http = require('http');
 
 process.env.PORT = 3133;
 require('../server/index.js');
@@ -85,6 +86,30 @@ const get = async (p) => {
   ok(/staticBuild:\s*true/.test(cfg), 'dist config is marked static');
   ok(cfg.includes('https://example.test'), 'dist config carries the server URL');
   ok(!/staticBuild:\s*true/.test(fs.readFileSync(path.join(ROOT, 'public', 'js', 'config.js'), 'utf8')), 'source config untouched');
+
+  // ── the committed Pages bundle works from a project sub-path ─────────────
+  spawnSync(process.execPath, [path.join(ROOT, 'tools', 'build-static.js'), '--out', 'docs'], { encoding: 'utf8' });
+  const docs = path.join(ROOT, 'docs');
+  ok(fs.existsSync(path.join(docs, 'index.html')), 'docs/ bundle is present for GitHub Pages');
+  const sub = http.createServer((req, res) => {
+    let u = req.url.split('?')[0];
+    if (!u.startsWith('/belote/')) { res.writeHead(404); return res.end(); }
+    u = u.slice(7) === '/' ? '/index.html' : u.slice(7);
+    fs.readFile(path.join(docs, u), (e, b) => {
+      if (e) { res.writeHead(404); return res.end(); }
+      res.writeHead(200); res.end(b);
+    });
+  });
+  await new Promise((r) => sub.listen(3134, '127.0.0.1', r));
+  const base = 'http://127.0.0.1:3134/belote/';
+  const page = await (await fetch(base)).text();
+  const refs = [...page.matchAll(/(?:src|href)="([^"]+)"/g)].map((m) => m[1]).filter((u) => !/^(https?:|data:)/.test(u));
+  let broken = 0;
+  for (const r of new Set(refs)) if (!(await fetch(new URL(r, base))).ok) broken++;
+  const dmf = await (await fetch(new URL('manifest.webmanifest', base))).json();
+  for (const i of dmf.icons) if (!(await fetch(new URL(i.src, base))).ok) broken++;
+  ok(broken === 0, 'every asset resolves when hosted under /belote/ (relative paths)');
+  sub.close();
 
   // ── deployment descriptors ───────────────────────────────────────────────
   for (const f of ['Dockerfile', 'render.yaml', 'fly.toml', 'Procfile', 'railway.json',

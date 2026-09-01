@@ -27,15 +27,27 @@ git add .github/workflows && git commit -m "Enable CI/CD" && git push
 You get three: **CI** (tests + Docker smoke on every push), **Deploy web app** (GitHub
 Pages), **Build Android app** (APK/AAB on demand).
 
-## 1. Web — GitHub Pages (free, no account plumbing)
+## 1. Web — GitHub Pages
 
-`pages.yml` builds `dist/` and publishes it.
+### The one-click way (nothing to install)
 
-1. **Settings ▸ Pages ▸ Build and deployment ▸ Source: GitHub Actions.**
-2. Push to `main` (or run the workflow manually). The URL appears in the run summary,
-   typically `https://<user>.github.io/belote/`.
-3. Optional: **Settings ▸ Secrets and variables ▸ Actions ▸ Variables ▸ New variable**
-   `BELOTE_SERVER = https://your-server` to switch online play on.
+A ready-to-serve copy of the app is committed in **`docs/`**:
+
+> **Settings ▸ Pages ▸ Build and deployment ▸ Source: _Deploy from a branch_ ▸
+> Branch: `main` · Folder: `/docs` ▸ Save**
+
+A minute later the game is live at `https://<user>.github.io/belote/`. Refresh it after
+changing the app with `npm run build:pages && git commit -am "rebuild docs"`.
+
+### The tidy way (build in CI)
+
+With `pages.yml` installed: **Settings ▸ Pages ▸ Source: _GitHub Actions_**, then push to
+`main`. Nothing needs to be committed; the URL appears in the run summary. Set the
+repository variable `BELOTE_SERVER = https://your-server` (Settings ▸ Secrets and variables
+▸ Actions ▸ Variables) to switch online play on.
+
+Both routes ship the same installable PWA, and the bundle is sub-path safe (everything is
+referenced relatively), which the test suite verifies.
 
 Result: an installable PWA. Solo play works offline; without `BELOTE_SERVER` the online
 buttons ask for a server URL instead of failing silently.

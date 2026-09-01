@@ -105,7 +105,7 @@ disables the shake and long animations.
 
 | Target | Command / file |
 |---|---|
-| Web (PWA, free) | GitHub Pages workflow — `deploy/github-workflows/pages.yml` |
+| Web (PWA, free) | Settings ▸ Pages ▸ branch `main`, folder `/docs` (already built) |
 | Online server | `fly.toml`, `render.yaml`, `railway.json`, `Procfile`, `Dockerfile` |
 | Android APK/AAB | Actions ▸ *Build Android app*, or `npm run mobile:apk` |
 | Install the workflows | `cp deploy/github-workflows/*.yml .github/workflows/` |

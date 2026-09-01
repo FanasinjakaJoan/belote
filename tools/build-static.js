@@ -5,14 +5,18 @@
  * mobile app, where solo play runs fully offline and online play points at a
  * server URL (BELOTE_SERVER, or entered by the player in the Join screen).
  *
- *   node tools/build-static.js [--server https://belote.example.com]
+ *   node tools/build-static.js [--server https://belote.example.com] [--out docs]
  */
 const fs = require('fs');
 const path = require('path');
 
 const ROOT = path.join(__dirname, '..');
 const SRC = path.join(ROOT, 'public');
-const OUT = path.join(ROOT, 'dist');
+const outArg = (() => {
+  const i = process.argv.indexOf('--out');
+  return i > -1 ? process.argv[i + 1] : 'dist';
+})();
+const OUT = path.join(ROOT, outArg);
 
 const argServer = (() => {
   const i = process.argv.indexOf('--server');
@@ -49,5 +53,5 @@ const files = [];
 })(OUT);
 const bytes = files.reduce((a, f) => a + fs.statSync(f).size, 0);
 
-console.log('dist/ built — ' + files.length + ' files, ' + (bytes / 1024).toFixed(0) + ' kB');
+console.log(outArg + '/ built — ' + files.length + ' files, ' + (bytes / 1024).toFixed(0) + ' kB');
 console.log('multiplayer server: ' + (argServer || '(none — solo only until the player sets one)'));
