@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const { WebSocketServer } = require('ws');
-const { RoomManager } = require('./rooms');
+const { RoomManager } = require('../public/js/rooms');
 
 const PORT = process.env.PORT || 3000;
 const HOST = process.env.HOST || '0.0.0.0';
@@ -45,9 +45,13 @@ const server = http.createServer((req, res) => {
       res.writeHead(404, { 'content-type': 'text/plain' });
       return res.end('not found');
     }
+    const ext = path.extname(file);
+    const immutable = p.startsWith('/icons/');
     res.writeHead(200, {
-      'content-type': MIME[path.extname(file)] || 'application/octet-stream',
-      'cache-control': 'no-cache',
+      'content-type': MIME[ext] || 'application/octet-stream',
+      'cache-control': immutable ? 'public, max-age=604800' : 'no-cache',
+      'service-worker-allowed': '/',
+      'x-content-type-options': 'nosniff',
     });
     res.end(buf);
   });
@@ -211,3 +215,16 @@ interval.unref?.();
 server.listen(PORT, HOST, () => {
   console.log(`♠ Belote Royale running at http://${HOST}:${PORT}`);
 });
+
+// graceful shutdown so PaaS deploys/restarts don't cut games mid-trick
+let closing = false;
+for (const sig of ['SIGTERM', 'SIGINT']) {
+  process.on(sig, () => {
+    if (closing) process.exit(0);
+    closing = true;
+    console.log('shutting down…');
+    for (const ws of wss.clients) { try { ws.close(1001, 'server restarting'); } catch {} }
+    server.close(() => process.exit(0));
+    setTimeout(() => process.exit(0), 4000).unref();
+  });
+}

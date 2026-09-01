@@ -1,6 +1,6 @@
 'use strict';
 const assert = require('assert');
-const E = require('../server/engine');
+const E = require('../public/js/engine');
 
 let pass = 0;
 const t = (name, fn) => { fn(); pass++; console.log('  ✓ ' + name); };

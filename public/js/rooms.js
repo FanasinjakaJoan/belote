@@ -1,5 +1,16 @@
+/**
+ * Tables: seating, the AI driver, animation beats and per-seat views.
+ * Shared source of truth: the Node server requires this file, and the browser
+ * loads it directly to run solo games offline.
+ * UMD — the browser loads this to run solo games entirely offline.
+ */
+(function (root, factory) {
+  'use strict';
+  const api = factory(typeof module === 'object' && module.exports ? require('./engine') : root.BeloteEngine);
+  if (typeof module === 'object' && module.exports) module.exports = api;
+  else root.BeloteRooms = api;
+})(typeof globalThis !== 'undefined' ? globalThis : this, function (E) {
 'use strict';
-const E = require('./engine');
 
 const AI_NAMES = ['Margot', 'Lucien', 'Odette', 'Rémy', 'Colette', 'Bastien', 'Nadine', 'Émile'];
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -322,4 +333,5 @@ class RoomManager {
   }
 }
 
-module.exports = { Room, RoomManager };
+return { Room, RoomManager };
+});

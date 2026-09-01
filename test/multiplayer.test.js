@@ -24,6 +24,9 @@ function client(name) {
       c.state = m;
       const g = m.g;
       if (!g) return;
+      if (!c.firstDeal && g.hand && g.hand.length === 5) {
+        c.firstDeal = { hand: g.hand.slice(), upcard: g.upcard, phase: g.phase };
+      }
       const key = g.phase + g.roundNo + g.tricks.join() + g.turn + (g.hand || []).length;
       if (c.lastKey === key) return;
       c.lastKey = key;
@@ -72,10 +75,12 @@ const until = async (fn, ms = 30000) => {
   send(host, 'startGame', {});
   const started = await until(() => host.state.room.started && host.state.g);
   ok(started, 'host started the game');
-  ok(host.state.g.hand.length === 5, 'host was dealt 5 cards');
-  ok(guest.state.g.hand.length === 5, 'guest was dealt 5 cards');
-  ok(!host.state.g.hand.some((c) => guest.state.g.hand.includes(c)), 'hands are disjoint (no card leaks)');
-  ok(host.state.g.upcard && host.state.g.upcard === guest.state.g.upcard, 'both see the same upcard');
+  ok(host.firstDeal && host.firstDeal.hand.length === 5, 'host was dealt 5 cards');
+  ok(guest.firstDeal && guest.firstDeal.hand.length === 5, 'guest was dealt 5 cards');
+  ok(!host.firstDeal.hand.some((c) => guest.firstDeal.hand.includes(c)), 'hands are disjoint (no card leaks)');
+  ok(host.firstDeal.upcard && host.firstDeal.upcard === guest.firstDeal.upcard, 'both see the same upcard');
+  ok(!host.msgs.some((m) => m.type === 'state' && m.g && m.g.counts && m.g.hand && m.g.hand.length > 8),
+    'a client is never sent more than its own eight cards');
 
   const dealt = await until(() => host.state.g.phase === 'play' && host.state.g.hand.length === 8, 25000);
   ok(dealt, 'bidding resolved and hands filled to 8');

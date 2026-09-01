@@ -70,8 +70,10 @@
     myId = myPid;
     Net.on('open', () => {
       Net.send('identify', { pid: myPid });
-      const back = sessionStorage.getItem('belote.room');
-      if (back) Net.send('join', { code: back });
+      if (Net.mode === 'ws') {
+        const back = sessionStorage.getItem('belote.room');
+        if (back) Net.send('join', { code: back });
+      }
     });
     Net.on('joined', (m) => {
       if (m.mode === 'solo') { sessionStorage.removeItem('belote.room'); hideAll(); }
@@ -96,10 +98,14 @@
     });
     Net.on('nope', (m) => { toast(m.err === 'illegal card' ? 'You must follow suit!' : m.err); SFX.error(); FX.shake(5, 7); });
     Net.on('close', () => { });
-    Net.connect();
+    // Only dial the server when an online table is actually wanted; solo play
+    // runs entirely in this page, so the app works with no network at all.
+    if (sessionStorage.getItem('belote.room')) Net.connect();
+    else Net.goLocal();
 
     wireMenu();
     wireKeys();
+    wireInstall();
   }
 
   // ─────────────────────────────────────────────────── menu ──
@@ -115,9 +121,23 @@
   }
 
   function wireMenu() {
-    $('#btnSolo').onclick = () => { SFX.unlock(); pushName(); scoreSaved = false; Net.send('solo', opts()); };
-    $('#btnCreate').onclick = () => { SFX.unlock(); pushName(); scoreSaved = false; Net.send('create', opts()); };
-    $('#btnJoin').onclick = () => { SFX.unlock(); pushName(); show('joinScreen'); refreshRooms(); };
+    $('#btnSolo').onclick = () => {
+      SFX.unlock(); scoreSaved = false;
+      sessionStorage.removeItem('belote.room');
+      Net.goLocal();
+      pushName();
+      Net.send('solo', Object.assign(opts(), { name: Store.settings.name || 'You' }));
+    };
+    $('#btnCreate').onclick = () => {
+      SFX.unlock(); scoreSaved = false;
+      if (!requireServer()) return;
+      Net.connect(); pushName(); Net.send('create', opts());
+    };
+    $('#btnJoin').onclick = () => {
+      SFX.unlock();
+      if (!requireServer()) return;
+      Net.connect(); pushName(); show('joinScreen'); refreshRooms();
+    };
     $('#btnHow').onclick = () => show('how');
     $$('[data-back]').forEach((b) => (b.onclick = () => { if (S && S.room.started) hideAll(); else { Net.send('leave'); show('start'); } }));
     $('#btnJoinGo').onclick = () => {
@@ -125,7 +145,11 @@
       if (code.length !== 4) return toast('Enter a 4-letter code');
       Net.send('join', { code });
     };
-    $('#btnQuick').onclick = () => Net.send('quick', {});
+    $('#btnQuick').onclick = () => { Net.connect(); Net.send('quick', {}); };
+    const srv = $('#inpServer');
+    srv.value = Net.serverBase();
+    srv.onchange = () => { Net.setServer(srv.value.trim()); toast(srv.value.trim() ? 'Server saved' : 'Using this site', true); };
+    $('#srvRow').hidden = !isStatic();
     $('#inpCode').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('#btnJoinGo').click(); });
     $('#btnStartGame').onclick = () => Net.send('startGame', {});
     $('#btnCopy').onclick = async () => {
@@ -146,8 +170,18 @@
     }));
     $('#btnResume').onclick = () => togglePause(false);
     $('#btnRestart').onclick = () => { scoreSaved = false; Net.send('restart', {}); hideAll(); Net.send('pause', { value: false }); };
-    $('#btnQuit').onclick = () => { Net.send('leave'); S = null; prev = null; show('start'); renderHighscores(); };
-    $('#btnMenu2').onclick = () => { Net.send('leave'); S = null; prev = null; show('start'); renderHighscores(); };
+    const toMenu = () => {
+      Net.send('leave');
+      sessionStorage.removeItem('belote.room');
+      S = null; prev = null;
+      handEls.forEach((el) => el.remove()); handEls.clear();
+      trickEls.forEach((el) => el.remove()); trickEls.clear();
+      lastScores = [0, 0];
+      $('#scoreUs').textContent = '0'; $('#scoreThem').textContent = '0';
+      show('start'); renderHighscores();
+    };
+    $('#btnQuit').onclick = toMenu;
+    $('#btnMenu2').onclick = toMenu;
     $('#btnNextRound').onclick = () => { hideAll(); Net.send('nextRound', {}); };
     $('#btnAgain').onclick = () => { scoreSaved = false; hideAll(); Net.send('restart', {}); };
   }
@@ -713,6 +747,37 @@
   function onCardTapKeyboard(card) {
     if (!(S.g.legal || []).includes(card)) { toast('You must follow suit!'); SFX.error(); FX.shake(4, 6); return; }
     playCard(card);
+  }
+
+  /** A packaged / statically hosted build has no server of its own. */
+  function isStatic() {
+    return !!(w.BELOTE_CONFIG && w.BELOTE_CONFIG.staticBuild);
+  }
+  function requireServer() {
+    if (!isStatic() || Net.serverBase()) return true;
+    show('joinScreen');
+    toast('Set a multiplayer server URL below to play online');
+    return false;
+  }
+
+  let deferredInstall = null;
+  function wireInstall() {
+    addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredInstall = e;
+      $('#installRow').hidden = false;
+    });
+    $('#btnInstall').onclick = async () => {
+      if (!deferredInstall) return;
+      deferredInstall.prompt();
+      const r = await deferredInstall.userChoice.catch(() => null);
+      if (r && r.outcome === 'accepted') { $('#installRow').hidden = true; FX.confetti(60); }
+      deferredInstall = null;
+    };
+    addEventListener('appinstalled', () => { $('#installRow').hidden = true; toast('Installed — enjoy!', true); });
+    if (navigator.serviceWorker && location.protocol.startsWith('http')) {
+      addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+    }
   }
 
   function esc(s) { return String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }

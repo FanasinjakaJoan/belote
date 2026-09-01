@@ -1,10 +1,18 @@
-'use strict';
 /**
  * Belote Royale — rules engine.
  * Pure, deterministic (given an RNG), no I/O. Shared by the server and the tests.
  *
  * Standard French Belote: 32 cards, 4 seats, 2 teams (seats 0+2 vs 1+3).
+ *
+ * UMD: `require('./engine')` in Node, `window.BeloteEngine` in the browser.
  */
+(function (root, factory) {
+  'use strict';
+  const api = factory();
+  if (typeof module === 'object' && module.exports) module.exports = api;
+  else root.BeloteEngine = api;
+})(typeof globalThis !== 'undefined' ? globalThis : this, function () {
+'use strict';
 
 const SUITS = ['S', 'H', 'D', 'C']; // spades, hearts, diamonds, clubs
 const RANKS = ['7', '8', '9', 'T', 'J', 'Q', 'K', 'A'];
@@ -431,9 +439,10 @@ function aiPlay(g, seat, difficulty = 'normal') {
   return legal.reduce((a, b) => (pts(b) < pts(a) || (pts(b) === pts(a) && ord(b) < ord(a)) ? b : a));
 }
 
-module.exports = {
+return {
   SUITS, RANKS, makeDeck, cardPoints, cardOrder, suitOf, rankOf,
   teamOf, partnerOf, nextSeat, trickWinnerIndex, legalCards, sortHand,
   createGame, startRound, applyBid, playCard, scoreRound,
   aiBid, aiPlay, handStrength, mulberry32, shuffle,
 };
+});

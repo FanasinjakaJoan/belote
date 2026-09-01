@@ -2,12 +2,20 @@
   "name": "belote-online",
   "version": "1.0.0",
   "private": true,
-  "description": "Belote Royale — polished online/AI belote card game",
+  "description": "Belote Royale — online & offline belote card game (web + PWA + mobile)",
   "main": "server/index.js",
   "scripts": {
     "start": "node server/index.js",
     "dev": "node server/index.js",
-    "test": "node test/run.js"
+    "test": "node test/run.js",
+    "build": "node tools/build-static.js",
+    "build:icons": "node tools/icons.js",
+    "docker:build": "docker build -t belote-royale .",
+    "docker:run": "docker run --rm -p 3000:3000 belote-royale",
+    "mobile:init": "npm i -D @capacitor/cli@6 @capacitor/core@6 @capacitor/android@6 && npm run build && npx cap add android",
+    "mobile:sync": "npm run build && npx cap sync",
+    "mobile:open": "npx cap open android",
+    "mobile:apk": "npm run mobile:sync && cd android && ./gradlew assembleDebug"
   },
   "engines": {
     "node": ">=18"

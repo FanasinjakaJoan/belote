@@ -1,7 +1,7 @@
 'use strict';
 /* Runs every suite in its own process (each integration suite boots a server). */
 const { spawnSync } = require('child_process');
-const suites = ['engine.test.js', 'client.test.js', 'multiplayer.test.js'];
+const suites = ['engine.test.js', 'client.test.js', 'multiplayer.test.js', 'deploy.test.js'];
 let failed = 0;
 for (const s of suites) {
   console.log('\n── ' + s + ' ' + '─'.repeat(Math.max(0, 50 - s.length)));

@@ -10,6 +10,15 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26'>♠</text></svg>">
+<link rel="manifest" href="manifest.webmanifest" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Belote Royale" />
+<link rel="apple-touch-icon" href="icons/icon-180.png" />
+<meta property="og:title" content="Belote Royale" />
+<meta property="og:description" content="Classic French belote — play online with friends or offline against AI." />
+<meta property="og:image" content="icons/icon-512.png" />
 <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
@@ -128,6 +137,9 @@
           <h2>Hall of Fame</h2>
           <table id="hsTable"><tbody><tr><td class="empty">No games yet — win one!</td></tr></tbody></table>
         </div>
+        <div class="row" id="installRow" hidden>
+          <button class="big-btn" id="btnInstall"><span class="bb-title">📲 Install app</span><span class="bb-sub">Play offline, full screen</span></button>
+        </div>
         <p class="foot">Keys: ← → pick · Enter play · P pause · Esc menu</p>
       </div>
     </section>
@@ -142,6 +154,9 @@
           <button class="big-btn" id="btnQuick">Quick match</button>
         </div>
         <div id="roomList" class="room-list"></div>
+        <label class="opt srv" id="srvRow"><span>Multiplayer server</span>
+          <input id="inpServer" placeholder="https://your-belote-server" autocomplete="off" spellcheck="false" />
+        </label>
         <button class="ghost-btn" data-back>Back</button>
       </div>
     </section>
@@ -240,6 +255,10 @@
   </div>
   <canvas id="fx"></canvas>
 </div>
+<script src="js/config.js"></script>
+<script src="js/engine.js"></script>
+<script src="js/rooms.js"></script>
+<script src="js/local.js"></script>
 <script src="js/store.js"></script>
 <script src="js/fx.js"></script>
 <script src="js/cards.js"></script>

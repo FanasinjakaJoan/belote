@@ -3,3 +3,9 @@ node_modules/
 npm-debug.log*
 *.log
 .env
+dist/
+android/
+ios/
+.capacitor/
+*.apk
+*.aab

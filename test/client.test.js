@@ -8,7 +8,6 @@
 const path = require('path');
 const fs = require('fs');
 const { JSDOM, VirtualConsole } = require('jsdom');
-const WS = require('ws');
 
 const PORT = 3111;
 process.env.PORT = PORT;
@@ -32,7 +31,9 @@ const dom = new JSDOM(html, {
 const win = dom.window;
 
 // ── stubs ───────────────────────────────────────────────────────────────────
-win.WebSocket = WS;
+// Networking is deliberately BROKEN for this suite: solo play must work with
+// no server at all (offline PWA / packaged mobile app).
+win.WebSocket = function () { throw new Error('network is disabled in this test'); };
 win.HTMLCanvasElement.prototype.getContext = function () {
   return new Proxy({}, {
     get: (t, k) => (k === 'canvas' ? {} : typeof k === 'string' ? () => {} : undefined),
@@ -89,11 +90,21 @@ function key(k) {
   assert($('#start').classList.contains('active'), 'Escape returns to the menu');
 
   // Start a solo game with keyboard
+  let firstDeal = null;
+  win.Net.on('state', (m) => {
+    if (!firstDeal && m.g && m.g.hand && m.g.hand.length === 5) {
+      firstDeal = { hand: m.g.hand.slice(), counts: m.g.counts.slice(), upcard: m.g.upcard };
+    }
+  });
   key('1');
   await sleep(1400);
   assert(!$('#start').classList.contains('active'), 'solo game hides the menu');
-  assert($$('#hand .card').length === 5, 'five cards dealt to hand, got ' + $$('#hand .card').length);
-  assert($$('#opp-n .mini').length === 5, 'north opponent shows 5 card backs');
+  assert(win.Net.mode === 'local', 'solo runs on the offline engine, not the network');
+  assert(firstDeal && firstDeal.hand.length === 5, 'first deal gives five cards');
+  assert(firstDeal && firstDeal.counts.every((n) => n === 5), 'all four seats get five cards');
+  assert(firstDeal && !!firstDeal.upcard, 'a card is turned up for bidding');
+  assert($$('#hand .card').length > 0, 'cards are rendered in the hand');
+  assert($$('#opp-n .mini').length > 0, 'north opponent shows card backs');
 
   // Bid: take the upcard as soon as it is our turn (else pass through)
   let took = false;
@@ -163,6 +174,9 @@ function key(k) {
   click($('#btnSound'));
 
   // Highscore storage
+  // the app shell declares itself installable
+  assert(!!win.document.querySelector('link[rel="manifest"]'), 'manifest is linked');
+
   win.Store.addScore({ score: 501, opp: 320, rounds: 4, target: 501, difficulty: 'hard', won: 1, mode: 'solo' });
   assert(win.Store.highscores().length === 1, 'high score persisted');
 
