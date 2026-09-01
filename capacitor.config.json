@@ -1,0 +1,15 @@
+{
+  "appId": "com.beloteroyale.app",
+  "appName": "Belote Royale",
+  "webDir": "dist",
+  "android": { "allowMixedContent": false },
+  "ios": { "contentInset": "always" },
+  "server": { "androidScheme": "https" },
+  "plugins": {
+    "SplashScreen": {
+      "launchAutoHide": true,
+      "backgroundColor": "#071310",
+      "showSpinner": false
+    }
+  }
+}
