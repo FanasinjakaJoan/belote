@@ -1,7 +1,7 @@
 {
-  "name": "Belote Royale",
-  "short_name": "Belote",
-  "description": "Classic French belote — play online with friends or offline against AI.",
+  "name": "Bélote Gasy",
+  "short_name": "Bélote Gasy",
+  "description": "La belote malgache : maka, contrat, dizaines. En ligne avec des amis ou contre l'IA.",
   "start_url": ".",
   "scope": ".",
   "display": "fullscreen",
@@ -10,7 +10,7 @@
   "background_color": "#071310",
   "theme_color": "#0a1a14",
   "categories": ["games", "entertainment"],
-  "lang": "en",
+  "lang": "fr",
   "icons": [
     { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
     { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },

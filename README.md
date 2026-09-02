@@ -1,115 +1,158 @@
-# ♠ Belote Royale
+# ♠ Bélote Gasy
 
-A polished, playable **belote card game for the browser** — classic French belote (32 cards,
-two teams of two), with an authoritative Node server, real online tables for **2, 3 or 4 humans**,
-and AI that fills every empty seat so you can also play **solo vs the machine**.
+La **belote malgache** telle qu'on la joue à Madagascar, en ligne ou contre l'IA —
+un jeu de cartes pour le navigateur (PWA), avec 2 ou 3 amis par code de table,
+des bots qui remplissent les sièges vides, et un module intégré de
+**documentation, d'apprentissage (quiz) et de conseils**.
 
-No build step, no framework: plain ES5-friendly JavaScript, CSS3 animation and a canvas
-particle layer, all served by a ~200-line Node server.
+Pas de build, pas de framework : JavaScript simple, animations CSS3 et une
+couche de particules canvas, le tout servi par un serveur Node d'environ
+200 lignes.
 
 ```bash
 npm install
 npm start          # http://localhost:3000
-npm test           # engine · headless client · multiplayer · deployment suites
-npm run build      # dist/ — installable PWA / mobile bundle
+npm test           # moteur · client · multijoueur · déploiement
+npm run build      # dist/ — bundle PWA / mobile installable
 ```
 
-**Solo play needs no server at all.** The rules engine and the bots ship to the browser,
-so "Play vs AI" runs in the page — offline, installable, packageable as a mobile app.
-The Node server exists for online tables. See [DEPLOY.md](DEPLOY.md).
+**Le jeu solo ne nécessite aucun serveur.** Le moteur de règles et les bots
+sont livrés dans la page : « Jouer vs IA » fonctionne hors ligne, s'installe
+comme PWA et se package en application mobile. Le serveur Node n'est là que
+pour les tables en ligne. Voir [DEPLOY.md](DEPLOY.md).
 
-## Features
+## Règles (Bélote Gasy)
 
-**Game**
-- Full French belote rules: trump ordering (J·9·A·10·K·Q·8·7), *follow suit*, forced
-  over-trumping, the partner exception, belote/rebelote (+20), *dix de der* (+10),
-  capot (252) and *dedans* (defenders take all 162).
-- Two bidding rounds on a turned-up card, redeal when everyone passes.
-- Match to 301 / 501 / 701 / 1001 points, three AI skill levels.
+- **4 joueurs, 2 équipes de 2** (partenaires face à face), **32 cartes**
+  (du 7 à l'As).
+- **Distribution en deux temps** : d'abord **5 cartes par joueur** (3 puis 2),
+  les **12 cartes restantes** restent au talon. **L'appel se fait avec 5
+  cartes**, puis — une fois le jeu décidé — chacun reçoit ses **3 dernières
+  cartes** (8 cartes en main).
+- **Appel « maka »** : le premier joueur qui parle est **obligé d'appeler** —
+  Pique / Cœur / Carreau (**16 dz**), Trèfle *tsy miharitra* (**64 dz**),
+  Tout-Atout *atao daholo* (**26 dz**), Sans-Atout *tsy misy atao* (**52 dz**).
+  Les suivants disent **« bon »**, **« contrent »** ou font un **appel
+  strictement supérieur** (jamais égal ou inférieur). Le partenaire du dernier
+  appelant ne peut pas annoncer une autre couleur (SA / TA seulement).
+  **Sans-Atout et Trèfle se ferment avec un seul « bon »**, Pique / Cœur /
+  Carreau et Tout-Atout avec **trois « bon »** consécutifs.
+- **Contre / Surcontre** : un adversaire peut **contrer** (les enchères
+  s'arrêtent, ×2) ; le partenaire du preneur peut **surcontrer** (×4, sauf
+  Trèfle et Sans-Atout) ou dire « bon » — puis on distribue les 3 dernières
+  cartes et on joue.
+- **Valeurs** : en atout J 20 · 9 14 · A 11 · 10 10 · R 4 · D 3 · 8/7 0 ;
+  hors atout A 11 · 10 10 · R 4 · D 3 · V 2 · 9/8/7 0. Manche = 152 points
+  de cartes + 10 (dix de der) = 162.
+- **« Tout ou rien »** : le preneur qui réussit (plus de points que la
+  défense) emporte toute la valeur du contrat ; s'il chute (**maty**), la
+  défense l'emporte. **Tout-Atout** est le seul jeu où les 26 dizaines sont
+  partagées entre les deux équipes (points arrondis en dizaines, l'équipe du
+  dix de der étant comptée en premier).
+- **Comptage** : unités de 1 à 5 arrondies en dessous, de 6 à 9 au-dessus
+  (86 points → 9 dizaines). **Première équipe à 150 dizaines.**
+- **Plis (« miboty »)** : fournir la couleur demandée ; couper à l'atout si
+  l'adversaire est maître (pisser libre si le partenaire est maître) ; monter
+  obligatoirement quand de l'atout est joué. Tout-Atout : pas de coupe mais
+  montée obligatoire. Sans-Atout : fournir simplement.
 
-**Online**
-- Create a table and share a 4-letter code — 1, 2, 3 or 4 humans at the same table.
-- Quick match joins any open table; empty seats are always played by AI, so a game
-  never stalls waiting for people.
-- Drop out and the bot covers your seat; come back and your seat is returned to you
-  (stable player id in `localStorage`, auto-rejoin on reconnect).
-- Emotes, live seat states, host-controlled start.
+## Apprentissage
+
+L'écran **« Règles & Apprendre »** (touche `4`) regroupe :
+
+- **📖 Règles** — la règle complète en 8 sections (distribution, maka,
+  valeurs des cartes, dizaines, tout ou rien, miboty…) avec le vocabulaire
+  malgache (maka, maty, miboty, pisser, tsy miharitra…).
+- **🎯 Quiz d'apprentissage** — 17 questions à choix multiples avec
+  explication immédiate, score final et recommencement.
+- **💡 Conseils** — stratégies pratiques (gestion des atouts, enchères,
+  contre, dix de der, défense…).
+
+## Fonctionnalités
+
+**Jeu**
+- Règles complètes de la Bélote Gasy : appel sur 5 cartes (premier appelant
+  obligé de parler), bon / contre / appel supérieur, contrats (16/26/52/64 dz),
+  1 « bon » pour SA et Trèfle, 3 pour les autres, contre/surcontre, comptage
+  en dizaines vers 150, tout ou rien, répartition du Tout-Atout,
+  miboty / monter, dix de der.
+- Tables en ligne pour **2, 3 ou 4 humains**, code à 4 lettres partagé,
+  match rapide, sièges vides joués par l'IA (reprise de votre siège en
+  cas de reconnexion).
+- Trois niveaux d'IA (facile / normale / difficile), solo 100 % hors ligne.
 
 **App / offline**
-- Installable PWA: fullscreen, own icon, service-worker precached shell, `Install app`
-  button on the start screen (iOS: Share ▸ Add to Home Screen).
-- Solo games run on the same room engine the server uses, loaded into the page — identical
-  rules, zero latency, no network.
-- Ships as an Android APK/AAB through Capacitor (one CI click), and as a Docker/Fly/Render/
-  Railway service for online play.
+- PWA installable : plein écran, icône dédiée, shell précaché par le service
+  worker, bouton « Installer l'app » (iOS : Partager ▸ Sur l'écran d'accueil).
+- Les parties solo utilisent exactement le même moteur que le serveur :
+  mêmes règles, zéro latence, aucun réseau requis.
+- APK/AAB Android via Capacitor, et déploiement Docker / Fly / Render /
+  Railway pour le jeu en ligne.
 
-**Feel**
-- Screen shake, particle bursts, sparkle trails on every card flight, suit explosions
-  on a take, confetti on capots and victories.
-- Card fan with per-card rotation, deal/land/sweep animations, count-up scoreboard,
-  synthesized WebAudio SFX (no audio assets to download).
-- Start screen, pause, round summary, game over with instant restart, and a local
-  hall of fame.
+**Ressenti**
+- Secousses d'écran, particules, traînées scintillantes, confettis en fin de
+  partie, SFX WebAudio synthétisés (aucun asset audio à télécharger).
+- Tableau des scores animé, résumés de manche, hall of fame local.
 
-**Controls**
+**Contrôles**
+
 | | |
 |---|---|
-| `←` `→` | pick a card |
-| `↵` / `Space` / `↑` | play it |
-| `1`–`8` | play a card directly |
-| `Y` / `N` | take / pass while bidding |
-| `S` `H` `D` `C` | name a trump suit in round two |
-| `P` / `Esc` | pause · menu |
-| `R` | restart from the game-over screen |
-| `M` | mute |
-| touch | tap to lift a card, tap again or flick up to play |
+| `←` `→` | choisir une carte |
+| `↵` / `Espace` / `↑` | jouer la carte |
+| `1`–`8` | jouer une carte directement |
+| `S` `H` `D` `C` | enchérir Pique / Cœur / Carreau / Trèfle |
+| `T` `A` | enchérir Tout-Atout / Sans-Atout |
+| `N` | passer (enchères / contre) |
+| `Y` | contrer / surcontrer |
+| `P` / `Échap` | pause · menu |
+| `R` | rejouer depuis l'écran de fin |
+| `M` | couper le son |
+| tactile | taper pour soulever une carte, retaper ou glisser vers le haut |
 
 ## Architecture
 
 ```
-server/index.js   static files + WebSocket protocol (the only server-only code)
+server/index.js   fichiers statiques + protocole WebSocket (seul code serveur)
 public/
-  index.html      every screen, no templating
-  sw.js           offline precache
+  index.html      tous les écrans, sans template
+  sw.js           pré-cache hors ligne
   manifest.webmanifest
-  js/engine.js    ← shared: pure rules + AI          (UMD: required by Node, loaded by the browser)
-  js/rooms.js     ← shared: tables, seating, AI driver, per-seat views
-  js/local.js     offline transport — runs rooms.js in the page for solo games
-  js/net.js       picks WebSocket or the offline engine
-  js/game.js      state → DOM renderer, input, juice
+  js/engine.js    ← partagé : règles pures + IA  (UMD : require Node / script navigateur)
+  js/rooms.js     ← partagé : tables, sièges, pilote IA, vues par joueur
+  js/local.js     transport hors ligne — exécute rooms.js dans la page (solo)
+  js/net.js       choisit WebSocket ou le moteur local
+  js/learn.js     documentation + quiz + conseils (écran « Règles & Apprendre »)
+  js/game.js      état → rendu DOM, entrées, effets
   js/{fx,cards,store,config}.js
 tools/
-  build-static.js dist/ bundle for Pages / Capacitor
-  icons.js        dependency-free PNG decode/resize/encode for every icon size
+  build-static.js bundle dist/ pour Pages / Capacitor
+  icons.js        encodage/décodage PNG sans dépendance pour chaque taille d'icône
 test/
-  engine.test.js       rules + 1000 simulated AI rounds
-  client.test.js       the real UI in jsdom **with networking disabled** (proves offline solo)
-  multiplayer.test.js  two humans + two bots playing a full round over WebSocket
-  deploy.test.js       manifest, icons, SW precache, browser build of the engine, dist/
+  engine.test.js       règles + 1000 manches IA simulées
+  client.test.js       la vraie UI en jsdom, réseau coupé (solo hors ligne)
+  multiplayer.test.js  2 humains + 2 bots sur WebSocket, une manche complète
+  deploy.test.js       manifeste, icônes, SW, build navigateur du moteur, dist/
 ```
 
-`engine.js` and `rooms.js` are UMD modules with a single source of truth: `require()`d by
-the Node server, `<script>`-loaded by the browser. Online play is
-**server-authoritative**: clients never see another player's hand (the test suite
-asserts it), never compute legality, and every animation is triggered by an `fx` event
-stream attached to each state broadcast. Solo play is the same code path — a private
-table with three bots — so there is exactly one implementation of the rules.
+`engine.js` et `rooms.js` sont des modules UMD avec une source de vérité
+unique : `require()` par le serveur Node, `<script>` par le navigateur. Le
+jeu en ligne est **autoritaire côté serveur** : les clients ne voient jamais
+la main des autres (la suite de tests l'affirme), ne calculent jamais la
+légalité, et chaque animation est déclenchée par le flux d'événements `fx`
+attaché à chaque diffusion d'état. Le solo emprunte exactement le même chemin
+— une table privée avec trois bots — donc il n'existe qu'une seule
+implémentation des règles.
 
-### Performance
-60 fps by construction: only `transform`/`opacity` are animated (GPU compositing),
-particles come from a fixed 460-object pool drawn on one canvas whose rAF loop stops
-completely when nothing is alive, DPR is capped at 2, and `prefers-reduced-motion`
-disables the shake and long animations.
+## Déploiement
 
-## Deploying
-
-| Target | Command / file |
+| Cible | Commande / fichier |
 |---|---|
-| Web (PWA, free) | Settings ▸ Pages ▸ branch `main`, folder `/docs` (already built) |
-| Online server | `fly.toml`, `render.yaml`, `railway.json`, `Procfile`, `Dockerfile` |
-| Android APK/AAB | Actions ▸ *Build Android app*, or `npm run mobile:apk` |
-| Install the workflows | `cp deploy/github-workflows/*.yml .github/workflows/` |
+| Web (PWA, gratuit) | Settings ▸ Pages ▸ branche `main`, dossier `/docs` (déjà construit) |
+| Serveur en ligne | `fly.toml`, `render.yaml`, `railway.json`, `Procfile`, `Dockerfile` |
+| APK/AAB Android | Actions ▸ *Build Android app*, ou `npm run mobile:apk` |
+| Installer les workflows | `cp deploy/github-workflows/*.yml .github/workflows/` |
 | iOS | `npx cap add ios && npx cap open ios` (macOS) |
 
-Full instructions, including TLS/WebSocket proxying and store submission, in
-[DEPLOY.md](DEPLOY.md).
+Instructions complètes, y compris proxy TLS/WebSocket et soumission aux
+stores, dans [DEPLOY.md](DEPLOY.md).

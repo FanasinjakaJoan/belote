@@ -7,10 +7,17 @@
   const PTS_TRUMP = { J: 20, 9: 14, A: 11, T: 10, K: 4, Q: 3, 8: 0, 7: 0 };
   const PTS_PLAIN = { A: 11, T: 10, K: 4, Q: 3, J: 2, 9: 0, 8: 0, 7: 0 };
 
-  function el(card, trump) {
+  /** Is the card a trump in this mode? (TA: every card is) */
+  function isTrump(c, mode, trump) {
+    return mode === 'TA' || (mode === 'C' && c[1] === trump);
+  }
+
+  /** card = e.g. 'JS' · mode = 'C'|'TA'|'SA' · trump = suit letter (colour games). */
+  function el(card, mode, trump) {
     const r = card[0], s = card[1];
+    const trumpCard = isTrump(card, mode, trump);
     const d = document.createElement('div');
-    d.className = 'card' + (RED[s] ? ' red' : '') + (trump && s === trump ? ' trump-card' : '');
+    d.className = 'card' + (RED[s] ? ' red' : '') + (trumpCard ? ' trump-card' : '');
     d.dataset.card = card;
     const g = GLYPH[s], lab = LABEL[r];
     const isFace = r === 'J' || r === 'Q' || r === 'K';
@@ -24,12 +31,18 @@
     return d;
   }
 
+  function points(c, mode, trump) {
+    if (mode === 'TA') return PTS_TRUMP[c[0]];
+    if (mode === 'SA') return PTS_PLAIN[c[0]];
+    return c[1] === trump ? PTS_TRUMP[c[0]] : PTS_PLAIN[c[0]];
+  }
+
   w.Cards = {
     GLYPH, LABEL,
     el,
     isRed: (c) => !!RED[c[1]],
     glyph: (s) => GLYPH[s] || '—',
-    points: (c, trump) => (c[1] === trump ? PTS_TRUMP[c[0]] : PTS_PLAIN[c[0]]),
+    points,
     name: (c) => LABEL[c[0]] + GLYPH[c[1]],
   };
 })(window);

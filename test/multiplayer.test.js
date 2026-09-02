@@ -24,13 +24,21 @@ function client(name) {
       c.state = m;
       const g = m.g;
       if (!g) return;
-      if (!c.firstDeal && g.hand && g.hand.length === 5) {
-        c.firstDeal = { hand: g.hand.slice(), upcard: g.upcard, phase: g.phase };
+      if (!c.firstDeal && g.hand && g.hand.length === 5 && g.phase === 'maka') {
+        c.firstDeal = { hand: g.hand.slice(), upcard: g.upcard, phase: g.phase, stock: g.stock };
       }
       const key = g.phase + g.roundNo + g.tricks.join() + g.turn + (g.hand || []).length;
       if (c.lastKey === key) return;
       c.lastKey = key;
-      if (g.canBid) { c.bids++; setTimeout(() => send(c, 'bid', { action: g.phase === 'bid1' ? { type: 'take' } : { type: 'pass' } }), 60); }
+      if (g.canBid) {
+        c.bids++;
+        // Bélote Gasy: open with Pique (16 dz) when we are the first caller,
+        // otherwise accept the contract with "bon".
+        const action = g.phase === 'maka' && g.bidSeat == null
+          ? { type: 'game', game: 'S' }
+          : { type: 'bon' };
+        setTimeout(() => send(c, 'bid', { action }), 60);
+      }
       else if (g.phase === 'play' && g.turn === m.you && g.legal.length) {
         c.plays++;
         setTimeout(() => send(c, 'play', { card: g.legal[(Math.random() * g.legal.length) | 0] }), 60);
@@ -75,20 +83,24 @@ const until = async (fn, ms = 30000) => {
   send(host, 'startGame', {});
   const started = await until(() => host.state.room.started && host.state.g);
   ok(started, 'host started the game');
-  ok(host.firstDeal && host.firstDeal.hand.length === 5, 'host was dealt 5 cards');
-  ok(guest.firstDeal && guest.firstDeal.hand.length === 5, 'guest was dealt 5 cards');
+  ok(host.firstDeal && host.firstDeal.hand.length === 5, 'host is dealt 5 cards before the appel');
+  ok(guest.firstDeal && guest.firstDeal.hand.length === 5, 'guest is dealt 5 cards before the appel');
   ok(!host.firstDeal.hand.some((c) => guest.firstDeal.hand.includes(c)), 'hands are disjoint (no card leaks)');
-  ok(host.firstDeal.upcard && host.firstDeal.upcard === guest.firstDeal.upcard, 'both see the same upcard');
-  ok(!host.msgs.some((m) => m.type === 'state' && m.g && m.g.counts && m.g.hand && m.g.hand.length > 8),
-    'a client is never sent more than its own eight cards');
+  ok(host.firstDeal.upcard == null && guest.firstDeal.upcard == null, 'no turned-up card in Bélote Gasy');
+  ok(host.firstDeal.stock === 12 && guest.firstDeal.stock === 12, '12 cards wait in the stock during the appel');
+  ok(!host.msgs.some((m) => m.type === 'state' && m.g && m.g.counts && m.g.hand && m.g.hand.length > 5 &&
+    (m.g.phase === 'maka' || m.g.phase === 'contre')),
+    'a client is never sent more than five cards while bidding');
 
-  const dealt = await until(() => host.state.g.phase === 'play' && host.state.g.hand.length === 8, 25000);
-  ok(dealt, 'bidding resolved and hands filled to 8');
+  const dealt = await until(() => host.state.g.phase === 'play' && host.state.g.hand.length === 8, 30000);
+  ok(dealt, 'the appel resolved and the 3 last cards were dealt: ' +
+    (host.state.g.game || '?') + ' (x' + host.state.g.mult + ')');
 
   const done = await until(() => host.state.g.phase === 'roundEnd' || host.state.g.phase === 'gameOver', 90000);
   ok(done, 'the four players completed a full round');
   const r = host.state.g.lastResult;
-  ok(r && r.raw[0] + r.raw[1] === 162, 'round accounted for all 162 points');
+  const want = r.mode === 'TA' ? 258 : r.mode === 'SA' ? 130 : 162;
+  ok(r && r.raw[0] + r.raw[1] === want, 'round accounted for all its points (' + want + ')');
   ok(host.state.g.scores.some((s) => s > 0), 'match score advanced: ' + host.state.g.scores.join(' – '));
 
   // online tables roll into the next round without input

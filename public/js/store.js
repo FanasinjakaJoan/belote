@@ -12,7 +12,7 @@
 
   const Store = {
     settings: Object.assign(
-      { name: '', sound: true, target: 501, difficulty: 'normal' },
+      { name: '', sound: true, target: 150, difficulty: 'normal' },
       read(K_ST, {})
     ),
     save() { write(K_ST, this.settings); },

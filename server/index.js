@@ -144,7 +144,7 @@ wss.on('connection', (ws) => {
       }
       case 'quick': {
         const open = manager.list();
-        const r = open.length ? manager.get(open[0].code) : manager.create({ mode: 'online', target: 501, hostId: c.id });
+        const r = open.length ? manager.get(open[0].code) : manager.create({ mode: 'online', target: 150, hostId: c.id });
         joinRoom(ws, c, r, null);
         break;
       }
@@ -196,8 +196,8 @@ wss.on('connection', (ws) => {
 });
 
 function clampTarget(t) {
-  const n = Number(t) || 501;
-  return [301, 501, 701, 1001].includes(n) ? n : 501;
+  const n = Number(t) || 150;
+  return [150, 301, 501, 701, 1001].includes(n) ? n : 150;
 }
 function pickDiff(d) {
   return ['easy', 'normal', 'hard'].includes(d) ? d : 'normal';
