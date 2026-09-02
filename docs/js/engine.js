@@ -3,13 +3,22 @@
  * Pure, deterministic (given an RNG), no I/O. Shared by the server and the tests.
  *
  * Bélote Gasy (Malagasy belote), 4 seats, 2 teams (seats 0+2 vs 1+3), 32 cards.
- *   - 8 cards per player from the start, no turned-up card, no stock.
- *   - Auction ("maka"): Pique/Cœur/Carreau = 16 dz · Tout-Atout = 26 dz ·
- *     Sans-Atout = 52 dz · Trèfle = 64 dz. A later bid of equal or higher
- *     value steals the contract; three consecutive passes close the auction;
- *     four passes with no bid redeal.
- *   - The defence may "contrer" (×2) and the taker's partner "surcontrer" (×4,
- *     only for Pique/Cœur/Carreau and Tout-Atout).
+ *   - First deal: 5 cards per player (3–2). The remaining 12 cards stay in the
+ *     stock until the contract is decided.
+ *   - Auction ("maka") with 5-card hands: the first speaker (right of the
+ *     dealer) MUST call — Pique/Cœur/Carreau = 16 dz · Tout-Atout = 26 dz ·
+ *     Sans-Atout = 52 dz · Trèfle = 64 dz.
+ *   - Each following player may say "bon" (accept), "contrer" (opponents only,
+ *     ends the auction), or call a game of equal or higher value (an equal
+ *     call steals the contract). The partner of the current caller may not
+ *     announce another colour — only Sans-Atout / Tout-Atout.
+ *   - One "bon" closes the auction for Sans-Atout and Trèfle; three
+ *     consecutive "bon" are needed for the other games.
+ *   - A "contre" fixes the contract at ×2, then the taker's partner has one
+ *     chance to "surcontrer" (×4, only for Pique/Cœur/Carreau and Tout-Atout)
+ *     or to say "bon".
+ *   - Only after the game is decided are the remaining 3 cards dealt to each
+ *     player (8-card hands), then the play starts.
  *   - Card points: 152 + 10 (dix de der) = 162 for colour games, 120 + 10 = 130
  *     for Sans-Atout, 248 + 10 = 258 for Tout-Atout.
  *   - "Tout ou rien": colour / Trèfle / Sans-Atout award the whole contract to
@@ -48,6 +57,12 @@ const suitOf = (c) => c[1];
 const modeOf = (game) => (game === 'TA' ? 'TA' : game === 'SA' ? 'SA' : 'C');
 /** The trump suit of a game (null for TA/SA) */
 const trumpOf = (game) => (game === 'TA' || game === 'SA') ? null : game;
+
+/** Sans-Atout and Trèfle are decided by a single "bon". */
+const bonsNeeded = (game) => (game === 'SA' || game === 'C') ? 1 : 3;
+
+/** A "surcontre" (×4) is only possible for Pique/Cœur/Carreau and Tout-Atout. */
+const surcontreAllowed = (game) => game === 'TA' || (game !== 'SA' && game !== 'C');
 
 function makeDeck() {
   const d = [];
@@ -189,7 +204,7 @@ function createGame(opts = {}) {
     dealer: opts.dealer != null ? opts.dealer : (Math.random() * 4) | 0,
     scores: [0, 0],
     roundNo: 0,
-    phase: 'idle', // idle | maka | contre | play | roundEnd | gameOver | redeal
+    phase: 'idle', // idle | maka | contre | play | roundEnd | gameOver
     hands: [[], [], [], []],
     mode: null,     // 'C' | 'TA' | 'SA'
     game: null,     // the contract word: 'S'|'H'|'D'|'C'|'TA'|'SA'
@@ -199,9 +214,7 @@ function createGame(opts = {}) {
     bidValue: 0,    // current highest bid (dizaines) — 0 = no bid yet
     bidGame: null,
     bidSeat: null,
-    passes: 0,      // consecutive passes since the last bid
-    contreSeat: null,
-    contreRound: 0, // 0 = defence may contre · 1 = taker's partner may surcontre
+    bonCount: 0,    // consecutive "bon" since the last call
     trick: [],
     turn: 0,
     tricksWon: [[], []], // arrays of tricks (cards) per team
@@ -220,13 +233,14 @@ function startRound(g) {
   const deck = shuffle(makeDeck(), rng);
   g.hands = [[], [], [], []];
   let k = 0;
-  // 3–2–3: everyone is dealt all 8 cards before any bidding (no turned-up card).
-  for (const chunk of [3, 2, 3]) {
+  // Bélote Gasy: 5 cards per player (3–2), then the auction, then 3 more cards.
+  for (const chunk of [3, 2]) {
     for (let i = 0; i < 4; i++) {
       const seat = (g.dealer + 1 + i) % 4;
       for (let n = 0; n < chunk; n++) g.hands[seat].push(deck[k++]);
     }
   }
+  g.stock = deck.slice(k); // the 12 cards dealt only after the game is decided
   g.mode = null;
   g.game = null;
   g.trump = null;
@@ -235,9 +249,7 @@ function startRound(g) {
   g.bidValue = 0;
   g.bidGame = null;
   g.bidSeat = null;
-  g.passes = 0;
-  g.contreSeat = null;
-  g.contreRound = 0;
+  g.bonCount = 0;
   g.trick = [];
   g.tricksWon = [[], []];
   g.roundPoints = [0, 0];
@@ -245,7 +257,7 @@ function startRound(g) {
   g.lastTrick = null;
   g.lastResult = null;
   g.phase = 'maka';
-  g.turn = nextSeat(g.dealer);
+  g.turn = nextSeat(g.dealer); // the first speaker (right of the dealer)
   for (const h of g.hands) sortHand(h, null, null);
   return g;
 }
@@ -260,84 +272,103 @@ function sortHand(hand, mode, trump) {
   return hand;
 }
 
-const surcontreAllowed = (game) => game === 'TA' || (game !== 'SA' && game !== 'C');
-
-/** Finish the auction: the leader becomes the taker, then the defence may contre. */
-function closeAuction(g) {
+/**
+ * The auction is over: fix the contract, deal the remaining 3 cards to each
+ * player (8-card hands), sort and start the play. The first speaker leads.
+ */
+function finalizeContract(g) {
   g.taker = g.bidSeat;
   g.game = g.bidGame;
   g.mode = modeOf(g.game);
   g.trump = trumpOf(g.game);
-  g.contreSeat = nextSeat(g.taker); // the player to the taker's left
-  g.contreRound = 0;
-  g.phase = 'contre';
-  g.turn = g.contreSeat;
   for (const h of g.hands) sortHand(h, g.mode, g.trump);
+  let k = 0;
+  for (let i = 0; i < 4; i++) {
+    const seat = (g.dealer + 1 + i) % 4;
+    for (let n = 0; n < 3; n++) g.hands[seat].push(g.stock[k++]);
+  }
+  g.stock = [];
+  for (const h of g.hands) sortHand(h, g.mode, g.trump);
+  g.phase = 'play';
+  g.turn = nextSeat(g.dealer); // the first speaker leads
   return g;
 }
 
 /**
  * Auction & contre actions.
- *  maka:   {type:'pass'} | {type:'game', game:'S'|'H'|'D'|'C'|'TA'|'SA'}
- *  contre: {type:'pass'} | {type:'contre'} | {type:'surcontre'}
+ *  maka:   {type:'game', game:'S'|'H'|'D'|'C'|'TA'|'SA'} (the first speaker
+ *          must call) · {type:'bon'} · {type:'contre'} (opponents only)
+ *  contre: {type:'bon'} | {type:'surcontre'}  (taker's partner only)
+ * Events: 'bid' (opening/raise) · 'bon' · 'contre' · 'surcontre' · 'decided'
+ * (the auction is closed; the engine has dealt the last 3 cards).
  */
 function applyBid(g, seat, action) {
   if (g.phase === 'maka') {
     if (seat !== g.turn) return { ok: false, err: 'not your turn' };
-    if (action.type === 'pass') {
-      g.passes += 1;
-      g.bidHistory.push({ seat, type: 'pass' });
-      if (g.bidSeat == null && g.passes === 4) {
-        g.phase = 'redeal';
-        return { ok: true, event: 'redeal' };
-      }
-      if (g.bidSeat != null && g.passes === 3) {
-        closeAuction(g);
-        return { ok: true, event: 'taken' };
-      }
-      g.turn = nextSeat(g.turn);
-      return { ok: true, event: 'pass' };
-    }
+    const opening = g.bidSeat == null;
+
     if (action.type === 'game' && GAMES[action.game] != null) {
-      // Equal value steals the contract ("à la volée"), higher value outbids.
-      if (g.bidSeat != null && GAMES[action.game] < g.bidValue) {
-        return { ok: false, err: 'too low — bid ' + g.bidValue + ' or more' };
+      if (!opening) {
+        // no equal or lower call — the next player may only call HIGHER
+        if (GAMES[action.game] <= g.bidValue) {
+          return { ok: false, err: 'not higher than ' + g.bidValue + ' dz' };
+        }
+        // the partner may only announce Sans-Atout / Tout-Atout
+        if (seat === partnerOf(g.bidSeat) && action.game !== 'TA' && action.game !== 'SA') {
+          return { ok: false, err: 'partner may only call Sans-Atout or Tout-Atout' };
+        }
       }
       g.bidHistory.push({ seat, type: 'game', game: action.game, value: GAMES[action.game] });
       g.bidValue = GAMES[action.game];
       g.bidGame = action.game;
       g.bidSeat = seat;
-      g.passes = 0;
+      g.bonCount = 0;
       g.turn = nextSeat(g.turn);
       return { ok: true, event: 'bid' };
     }
+
+    if (action.type === 'bon') {
+      if (opening) return { ok: false, err: 'the first caller must make an appel' };
+      g.bidHistory.push({ seat, type: 'bon' });
+      g.bonCount += 1;
+      if (g.bonCount >= bonsNeeded(g.bidGame)) {
+        finalizeContract(g);
+        return { ok: true, event: 'decided' };
+      }
+      g.turn = nextSeat(g.turn);
+      return { ok: true, event: 'bon' };
+    }
+
+    if (action.type === 'contre') {
+      if (opening) return { ok: false, err: 'no contract to contre yet' };
+      if (seat === partnerOf(g.bidSeat)) return { ok: false, err: 'you cannot contre your own team' };
+      g.bidHistory.push({ seat, type: 'contre', game: g.bidGame });
+      g.mult = 2;
+      if (surcontreAllowed(g.bidGame)) {
+        // the taker's partner may surcontre or say bon, then the deal happens
+        g.phase = 'contre';
+        g.turn = partnerOf(g.bidSeat);
+        return { ok: true, event: 'contre' };
+      }
+      finalizeContract(g);
+      return { ok: true, event: 'decided' };
+    }
+
     return { ok: false, err: 'bad action' };
   }
 
   if (g.phase === 'contre') {
-    if (seat !== g.turn || seat !== g.contreSeat) return { ok: false, err: 'not your turn' };
-    if (action.type === 'pass') {
-      g.phase = 'play';
-      g.turn = nextSeat(g.taker); // the taker's left neighbour leads
-      return { ok: true, event: g.contreRound === 0 ? 'contre-pass' : 'surcontre-pass' };
+    if (seat !== g.turn || seat !== partnerOf(g.bidSeat)) return { ok: false, err: 'not your turn' };
+    if (action.type === 'bon') {
+      g.bidHistory.push({ seat, type: 'bon' });
+      finalizeContract(g);
+      return { ok: true, event: 'decided' };
     }
-    if (action.type === 'contre' && g.contreRound === 0) {
-      g.mult = 2;
-      if (surcontreAllowed(g.game)) {
-        g.contreSeat = partnerOf(g.taker);
-        g.contreRound = 1;
-        g.turn = g.contreSeat;
-        return { ok: true, event: 'contre' };
-      }
-      g.phase = 'play';
-      g.turn = nextSeat(g.taker);
-      return { ok: true, event: 'contre' };
-    }
-    if (action.type === 'surcontre' && g.contreRound === 1 && surcontreAllowed(g.game)) {
+    if (action.type === 'surcontre' && surcontreAllowed(g.bidGame)) {
+      g.bidHistory.push({ seat, type: 'surcontre' });
       g.mult = 4;
-      g.phase = 'play';
-      g.turn = nextSeat(g.taker);
-      return { ok: true, event: 'surcontre' };
+      finalizeContract(g);
+      return { ok: true, event: 'decided' };
     }
     return { ok: false, err: 'bad action' };
   }
@@ -498,38 +529,47 @@ function evalGame(hand, game) {
 }
 
 function aiBid(g, seat, difficulty = 'normal') {
-  if (g.phase !== 'maka') return { type: 'pass' };
-  // never raise your own team's contract
-  if (g.bidSeat != null && teamOf(g.bidSeat) === teamOf(seat)) return { type: 'pass' };
-  const base = { easy: 66, normal: 58, hard: 50 }[difficulty] || 58;
-  const minValue = g.bidSeat == null ? 0 : g.bidValue;
-  let best = null, bestScore = -1;
-  for (const game of ['S', 'H', 'D', 'C', 'SA', 'TA']) {
-    if (GAMES[game] < minValue) continue;
-    const s = evalGame(g.hands[seat], game);
-    const need = base + (GAMES[game] - 16); // dearer contracts need stronger hands
-    if (s >= need && s > bestScore) { bestScore = s; best = game; }
+  if (g.phase !== 'maka') return { type: 'bon' };
+  const hand = g.hands[seat];
+  const opening = g.bidSeat == null;
+  const base = { easy: 26, normal: 22, hard: 18 }[difficulty] || 22;
+  const need = (v) => base + (v - 16) * 0.9; // dearer contracts need stronger hands
+  const margin = (game) => evalGame(hand, game) - need(GAMES[game]);
+
+  if (opening) {
+    // the first speaker MUST call: pick the game with the best margin
+    let best = 'S', bestM = -Infinity;
+    for (const game of ['S', 'H', 'D', 'TA', 'SA', 'C']) {
+      const m = margin(game);
+      if (m > bestM) { bestM = m; best = game; }
+    }
+    return { type: 'game', game: best };
   }
-  return best ? { type: 'game', game: best } : { type: 'pass' };
+
+  const isPartner = seat === partnerOf(g.bidSeat);
+  const allowed = ['S', 'H', 'D', 'C', 'TA', 'SA'].filter((game) =>
+    GAMES[game] > g.bidValue && (!isPartner || game === 'TA' || game === 'SA'));
+  if (!allowed.length) return { type: 'bon' };
+  let best = null, bestM = -Infinity;
+  for (const game of allowed) {
+    const m = margin(game);
+    if (m > bestM) { bestM = m; best = game; }
+  }
+  const raiseThresh = { easy: 14, normal: 8, hard: 4 }[difficulty] || 8;
+  if (bestM >= raiseThresh) return { type: 'game', game: best };
+  // opponents may contre a contract they think will fail
+  if (!isPartner) {
+    const contreThresh = { easy: 999, normal: 46, hard: 38 }[difficulty] || 46;
+    if (evalGame(hand, g.bidGame) >= contreThresh) return { type: 'contre' };
+  }
+  return { type: 'bon' };
 }
 
-/** Contre / surcontre decision for the seat currently asked. */
+/** Surcontre decision: the taker's partner holds the last word (phase 'contre'). */
 function aiContre(g, seat, difficulty = 'normal') {
-  const margins = { easy: 999, normal: 14, hard: 4 };
-  const smargins = { easy: 999, normal: 20, hard: 10 };
-  if (g.phase !== 'contre' || seat !== g.contreSeat) return { type: 'pass' };
-  if (g.contreRound === 0) {
-    // seat is the first defender
-    const sDef = evalGame(g.hands[seat], g.game) + evalGame(g.hands[partnerOf(seat)], g.game);
-    const sTak = evalGame(g.hands[g.taker], g.game) + evalGame(g.hands[partnerOf(g.taker)], g.game);
-    return sDef > sTak + (margins[difficulty] ?? 14) ? { type: 'contre' } : { type: 'pass' };
-  }
-  // surcontre round: taker's partner
-  const takerTeam = teamOf(g.taker);
-  const defSeat = nextSeat(g.taker);
-  const sTak = evalGame(g.hands[g.taker], g.game) + evalGame(g.hands[seat], g.game);
-  const sDef = evalGame(g.hands[defSeat], g.game) + evalGame(g.hands[partnerOf(defSeat)], g.game);
-  return sTak > sDef + (smargins[difficulty] ?? 20) ? { type: 'surcontre' } : { type: 'pass' };
+  if (g.phase !== 'contre' || seat !== partnerOf(g.bidSeat)) return { type: 'bon' };
+  const thresh = { easy: 999, normal: 62, hard: 50 }[difficulty] || 62;
+  return evalGame(g.hands[seat], g.bidGame) >= thresh ? { type: 'surcontre' } : { type: 'bon' };
 }
 
 function aiPlay(g, seat, difficulty = 'normal') {
@@ -601,7 +641,8 @@ function aiPlay(g, seat, difficulty = 'normal') {
 return {
   SUITS, RANKS, GAMES, makeDeck, cardPoints, cardOrder, suitOf, rankOf,
   teamOf, partnerOf, nextSeat, trickWinnerIndex, legalCards, sortHand,
-  createGame, startRound, applyBid, playCard, scoreRound,
+  createGame, startRound, finalizeContract, applyBid, playCard, scoreRound,
+  bonsNeeded, surcontreAllowed, modeOf, trumpOf,
   aiBid, aiContre, aiPlay, evalGame, handStrength, toDizaines, mulberry32, shuffle,
 };
 });

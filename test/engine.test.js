@@ -47,10 +47,8 @@ t('off-suit discard never wins in a colour game', () => {
 });
 
 t('TA: no cutting — the led suit alone decides the winner', () => {
-  // 9H (order 7) is played off-suit over AS (order 6) — it cannot cut
   const trick = [{ seat: 0, card: 'AS' }, { seat: 1, card: '9H' }];
   assert.strictEqual(E.trickWinnerIndex(trick, 'TA', null), 0);
-  // highest card of the led suit wins
   const trick2 = [{ seat: 0, card: 'JS' }, { seat: 1, card: 'AS' }];
   assert.strictEqual(E.trickWinnerIndex(trick2, 'TA', null), 0);
 });
@@ -82,16 +80,14 @@ t('void player must cut an opponent-winning trick (miboty)', () => {
 
 t('void player may pisser freely when partner is winning', () => {
   const trick = [{ seat: 0, card: '7S' }, { seat: 1, card: 'AS' }, { seat: 2, card: '8S' }];
-  const hand = ['7C', 'AH', 'KH']; // seat 3, partner seat 1 is master
+  const hand = ['7C', 'AH', 'KH'];
   assert.deepStrictEqual(E.legalCards(hand, trick, 'C', 'C').sort(), ['7C', 'AH', 'KH'].sort());
 });
 
 t('TA: must beat the master when following, any card when void', () => {
-  // led 9S (order 7): holding JS and 7S of the same suit, JS is mandatory
   const hand = ['JS', '7S', 'KH'];
   const legal = E.legalCards(hand, [{ seat: 0, card: '9S' }], 'TA', null);
   assert.deepStrictEqual(legal, ['JS']);
-  // void in the led suit → any card (no cutting in TA)
   const hand2 = ['7C', 'AH', 'KH'];
   const trick = [{ seat: 0, card: '9S' }];
   assert.deepStrictEqual(E.legalCards(hand2, trick, 'TA', null).sort(), ['7C', 'AH', 'KH'].sort());
@@ -106,90 +102,175 @@ t('SA: follow suit only, void discards freely', () => {
     ['7C', 'AH', 'KH'].sort());
 });
 
-// ─────────────────────────────────────────────── auction (maka) ──
+// ─────────────────────────────────────────────── deal & appel (maka) ──
 
-t('auction: one bid then three passes closes, taker leads the contract', () => {
-  const g = E.createGame({ seed: 11 });
+t('first deal: 5 cards each, 12-card stock, no turned-up card', () => {
+  const g = E.createGame({ seed: 99, dealer: 3 });
   E.startRound(g);
   assert.strictEqual(g.phase, 'maka');
+  for (const h of g.hands) assert.strictEqual(h.length, 5);
+  assert.strictEqual(g.stock.length, 12);
+  assert.strictEqual(g.upcard, undefined);
+  assert.strictEqual(new Set(g.hands.flat()).size, 20);
+});
+
+t('the first speaker MUST call — bon/contre are refused before any appel', () => {
+  const g = E.createGame({ seed: 11 });
+  E.startRound(g);
   const first = g.turn;
-  let r = E.applyBid(g, first, { type: 'game', game: 'S' });
+  assert.strictEqual(g.bidSeat, null);
+  let r = E.applyBid(g, first, { type: 'bon' });
+  assert.ok(!r.ok, 'bon is refused on the opening');
+  r = E.applyBid(g, first, { type: 'contre' });
+  assert.ok(!r.ok, 'contre is refused on the opening');
+  r = E.applyBid(g, first, { type: 'game', game: 'S' });
   assert.ok(r.ok && r.event === 'bid');
+  assert.strictEqual(g.bidSeat, first);
   assert.strictEqual(g.bidValue, 16);
+});
+
+t('three consecutive bon fix a colour appel and deal the last 3 cards', () => {
+  const g = E.createGame({ seed: 12 });
+  E.startRound(g);
+  E.applyBid(g, g.turn, { type: 'game', game: 'S' });
+  const taker = g.bidSeat;
   for (let i = 0; i < 3; i++) {
     const seat = g.turn;
-    r = E.applyBid(g, seat, { type: 'pass' });
+    const r = E.applyBid(g, seat, { type: 'bon' });
     assert.ok(r.ok, r.err);
+    if (i < 2) assert.strictEqual(r.event, 'bon');
   }
-  assert.strictEqual(g.phase, 'contre');
-  assert.strictEqual(g.taker, first);
+  assert.strictEqual(g.phase, 'play');
+  assert.strictEqual(g.taker, taker);
   assert.strictEqual(g.game, 'S');
   assert.strictEqual(g.mode, 'C');
   assert.strictEqual(g.trump, 'S');
-  // first defender declines the contre
-  r = E.applyBid(g, g.turn, { type: 'pass' });
-  assert.ok(r.ok);
-  assert.strictEqual(g.phase, 'play');
-  assert.strictEqual(g.turn, (first + 1) % 4); // taker's left neighbour leads
+  for (const h of g.hands) assert.strictEqual(h.length, 8, 'hands completed to 8');
+  assert.strictEqual(g.stock.length, 0);
 });
 
-t('auction: equal value steals the contract, lower is refused', () => {
-  const g = E.createGame({ seed: 12 });
-  E.startRound(g);
-  const a = g.turn;
-  E.applyBid(g, a, { type: 'game', game: 'H' });
-  const b = g.turn;
-  let r = E.applyBid(g, b, { type: 'game', game: 'D' }); // same 16 → steal
-  assert.ok(r.ok && g.bidSeat === b);
-  const c = g.turn;
-  r = E.applyBid(g, c, { type: 'game', game: 'TA' }); // 26 → outbid
-  assert.ok(r.ok && g.bidValue === 26 && g.bidSeat === c);
-  const d = g.turn;
-  r = E.applyBid(g, d, { type: 'game', game: 'H' }); // 16 < 26 → refused
-  assert.ok(!r.ok);
-  assert.strictEqual(g.bidSeat, c);
-});
-
-t('auction: four passes redeal', () => {
+t('a raise resets the bon count; the auction stays open', () => {
   const g = E.createGame({ seed: 13 });
   E.startRound(g);
-  for (let i = 0; i < 4; i++) {
-    const r = E.applyBid(g, g.turn, { type: 'pass' });
-    assert.ok(r.ok, r.err);
-  }
-  assert.strictEqual(g.phase, 'redeal');
+  E.applyBid(g, g.turn, { type: 'game', game: 'S' });
+  E.applyBid(g, g.turn, { type: 'bon' });
+  E.applyBid(g, g.turn, { type: 'bon' });
+  // third player raises to TA (26 > 16)
+  const seat = g.turn;
+  const r = E.applyBid(g, seat, { type: 'game', game: 'TA' });
+  assert.ok(r.ok && r.event === 'bid');
+  assert.strictEqual(g.bonCount, 0);
+  assert.strictEqual(g.bidSeat, seat);
 });
 
-t('contre ×2 then surcontre ×4 (colour), then play', () => {
-  const g = E.createGame({ seed: 14 });
+t('Sans-Atout and Trèfle are fixed by a SINGLE bon', () => {
+  for (const game of ['SA', 'C']) {
+    const g = E.createGame({ seed: 14 });
+    E.startRound(g);
+    E.applyBid(g, g.turn, { type: 'game', game });
+    const r = E.applyBid(g, g.turn, { type: 'bon' });
+    assert.ok(r.ok && r.event === 'decided', game + ' closes with one bon');
+    assert.strictEqual(g.phase, 'play');
+    assert.strictEqual(g.game, game);
+    assert.strictEqual(E.bonsNeeded(game), 1);
+  }
+});
+
+t('equal or lower calls are refused — only HIGHER appels', () => {
+  const g = E.createGame({ seed: 15 });
   E.startRound(g);
-  const taker = g.turn;
-  E.applyBid(g, taker, { type: 'game', game: 'S' });
-  for (let i = 0; i < 3; i++) E.applyBid(g, g.turn, { type: 'pass' });
-  assert.strictEqual(g.phase, 'contre');
-  assert.strictEqual(g.contreSeat, (taker + 1) % 4);
-  let r = E.applyBid(g, g.contreSeat, { type: 'contre' });
+  E.applyBid(g, g.turn, { type: 'game', game: 'H' }); // 16
+  const b = g.turn;
+  let r = E.applyBid(g, b, { type: 'game', game: 'D' }); // 16 equal
+  assert.ok(!r.ok, 'equal colour call refused');
+  r = E.applyBid(g, b, { type: 'game', game: 'TA' }); // 26 higher
+  assert.ok(r.ok && g.bidGame === 'TA');
+  const c = g.turn;
+  r = E.applyBid(g, c, { type: 'game', game: 'S' }); // 16 lower
+  assert.ok(!r.ok, 'lower call refused');
+});
+
+t('the partner may not call another colour — only SA/TA (when higher)', () => {
+  const g = E.createGame({ seed: 16 });
+  E.startRound(g);
+  E.applyBid(g, g.turn, { type: 'game', game: 'S' }); // seat A, 16
+  const a = g.bidSeat;
+  E.applyBid(g, g.turn, { type: 'bon' });
+  const partner = (a + 2) % 4;
+  // drive the turn around until the partner speaks
+  let guard = 0;
+  while (g.turn !== partner && g.phase === 'maka' && guard++ < 6) {
+    const r = E.applyBid(g, g.turn, { type: 'bon' });
+    if (!r.ok) break;
+  }
+  assert.strictEqual(g.turn, partner, 'partner has the word');
+  let r = E.applyBid(g, partner, { type: 'game', game: 'D' });
+  assert.ok(!r.ok, 'partner cannot call a colour');
+  r = E.applyBid(g, partner, { type: 'game', game: 'SA' }); // 52 > 16
+  assert.ok(r.ok && r.event === 'bid', 'partner may call Sans-Atout');
+});
+
+t('contre by an opponent freezes the appel; the partner may bon or surcontre', () => {
+  const g = E.createGame({ seed: 17 });
+  E.startRound(g);
+  const first = g.turn;
+  E.applyBid(g, first, { type: 'game', game: 'S' });
+  // opponents: the next two seats are the defenders
+  const def1 = g.turn;
+  const r = E.applyBid(g, def1, { type: 'contre' });
   assert.ok(r.ok && r.event === 'contre');
+  assert.strictEqual(g.phase, 'contre');
   assert.strictEqual(g.mult, 2);
-  assert.strictEqual(g.contreRound, 1);
-  assert.strictEqual(g.contreSeat, (taker + 2) % 4); // taker's partner
-  r = E.applyBid(g, g.contreSeat, { type: 'surcontre' });
-  assert.ok(r.ok && r.event === 'surcontre');
+  assert.strictEqual(g.turn, (first + 2) % 4, 'the taker\'s partner has the word');
+  // partner says bon → decided at ×2
+  let r2 = E.applyBid(g, g.turn, { type: 'bon' });
+  assert.ok(r2.ok && r2.event === 'decided');
+  assert.strictEqual(g.phase, 'play');
+  assert.strictEqual(g.mult, 2);
+  for (const h of g.hands) assert.strictEqual(h.length, 8);
+});
+
+t('the partner may surcontre a colour appel (×4)', () => {
+  const g = E.createGame({ seed: 18 });
+  E.startRound(g);
+  const first = g.turn;
+  E.applyBid(g, first, { type: 'game', game: 'D' });
+  E.applyBid(g, g.turn, { type: 'contre' });
+  assert.strictEqual(g.phase, 'contre');
+  const r = E.applyBid(g, g.turn, { type: 'surcontre' });
+  assert.ok(r.ok && r.event === 'decided');
   assert.strictEqual(g.mult, 4);
   assert.strictEqual(g.phase, 'play');
 });
 
-t('Sans-Atout: contre allowed but no surcontre', () => {
-  const g = E.createGame({ seed: 15 });
+t('contre on SA/Trèfle is final (no surcontre) and deals immediately', () => {
+  for (const game of ['SA', 'C']) {
+    const g = E.createGame({ seed: 19 });
+    E.startRound(g);
+    E.applyBid(g, g.turn, { type: 'game', game });
+    const r = E.applyBid(g, g.turn, { type: 'contre' });
+    assert.ok(r.ok && r.event === 'decided', game + ' contre goes straight to play');
+    assert.strictEqual(g.phase, 'play');
+    assert.strictEqual(g.mult, 2);
+    assert.strictEqual(g.game, game);
+  }
+});
+
+t('the partner cannot contre his own team', () => {
+  const g = E.createGame({ seed: 20 });
   E.startRound(g);
-  const taker = g.turn;
-  E.applyBid(g, taker, { type: 'game', game: 'SA' });
-  for (let i = 0; i < 3; i++) E.applyBid(g, g.turn, { type: 'pass' });
-  let r = E.applyBid(g, g.contreSeat, { type: 'contre' });
-  assert.ok(r.ok && g.mult === 2);
-  assert.strictEqual(g.phase, 'play', 'SA closes the auction straight to play');
-  r = E.applyBid(g, g.turn, { type: 'surcontre' });
-  assert.ok(!r.ok, 'surcontre refused after play started');
+  const first = g.turn;
+  E.applyBid(g, first, { type: 'game', game: 'H' });
+  E.applyBid(g, g.turn, { type: 'bon' });
+  const partner = (first + 2) % 4;
+  let guard = 0;
+  while (g.turn !== partner && g.phase === 'maka' && guard++ < 6) {
+    E.applyBid(g, g.turn, { type: 'bon' });
+  }
+  if (g.turn === partner) {
+    const r = E.applyBid(g, partner, { type: 'contre' });
+    assert.ok(!r.ok, 'partner contre refused');
+  }
 });
 
 // ─────────────────────────────────────────────── scoring ──
@@ -197,11 +278,11 @@ t('Sans-Atout: contre allowed but no surcontre', () => {
 function forceGame(game, taker) {
   const g = E.createGame({ seed: 42 });
   E.startRound(g);
+  g.bidSeat = taker;
   g.bidGame = game;
   g.bidValue = E.GAMES[game];
-  g.bidSeat = taker;
-  for (let i = 0; i < 3; i++) E.applyBid(g, g.turn, { type: 'pass' });
-  E.applyBid(g, g.turn, { type: 'pass' }); // decline contre
+  g.bonCount = 0;
+  E.finalizeContract(g);
   assert.strictEqual(g.phase, 'play');
   return g;
 }
@@ -219,7 +300,7 @@ t('colour contract made → taker team takes all 16 dizaines', () => {
 t('colour fall (maty) → defence takes all 16 dizaines', () => {
   const g = forceGame('H', 1);
   g.tricksWon = [[['7S']], [['8S']]];
-  g.roundPoints = [92, 70]; // taker team 1 loses
+  g.roundPoints = [92, 70];
   g.lastTrick = { winner: 0, cards: ['7S'], points: 7 };
   E.scoreRound(g);
   assert.strictEqual(g.lastResult.outcome, 'maty');
@@ -227,7 +308,7 @@ t('colour fall (maty) → defence takes all 16 dizaines', () => {
 });
 
 t('Trèfle contract made → 64 dizaines', () => {
-  const g = forceGame('C', 2); // seat 2 → team 0
+  const g = forceGame('C', 2);
   g.tricksWon = [[['7S']], [['8S']]];
   g.roundPoints = [95, 67];
   g.lastTrick = { winner: 2, cards: ['7S'], points: 7 };
@@ -249,18 +330,18 @@ t('Sans-Atout contract made → 52 dizaines', () => {
 t('Tout-Atout success → the 26 dizaines are shared from rounded points', () => {
   const g = forceGame('TA', 0);
   g.tricksWon = [[['7S']], [['8S']]];
-  g.roundPoints = [140, 118]; // 258 total
-  g.lastTrick = { winner: 2, cards: ['8S'], points: 8 }; // dix de der → team 0
+  g.roundPoints = [140, 118];
+  g.lastTrick = { winner: 2, cards: ['8S'], points: 8 };
   E.scoreRound(g);
   assert.strictEqual(g.lastResult.outcome, 'contract');
-  assert.deepStrictEqual(g.lastResult.final, [14, 12]); // 140→14, 26−14=12
+  assert.deepStrictEqual(g.lastResult.final, [14, 12]);
   assert.strictEqual(g.lastResult.final[0] + g.lastResult.final[1], 26);
 });
 
 t('Tout-Atout fall → defence takes all 26 dizaines', () => {
   const g = forceGame('TA', 1);
   g.tricksWon = [[['7S']], [['8S']]];
-  g.roundPoints = [138, 120]; // taker team 1 loses
+  g.roundPoints = [138, 120];
   g.lastTrick = { winner: 0, cards: ['7S'], points: 7 };
   E.scoreRound(g);
   assert.strictEqual(g.lastResult.outcome, 'maty');
@@ -297,16 +378,19 @@ t('match ends at 150 dizaines', () => {
   assert.strictEqual(g.scores[0], 150);
 });
 
-t('deal gives 8 cards to everyone, no upcard', () => {
-  const g = E.createGame({ seed: 99, dealer: 3 });
-  E.startRound(g);
-  assert.strictEqual(g.phase, 'maka');
-  assert.strictEqual(g.upcard, undefined);
-  for (const h of g.hands) assert.strictEqual(h.length, 8);
-  assert.strictEqual(new Set(g.hands.flat()).size, 32);
-});
-
 // ─────────────────────────────────────────────── full AI rounds ──
+
+function runAuction(g, diff) {
+  let guard = 0;
+  while (g.phase === 'maka' && guard++ < 60) {
+    const r = E.applyBid(g, g.turn, E.aiBid(g, g.turn, diff));
+    assert.ok(r.ok, r.err);
+  }
+  if (g.phase === 'contre') {
+    const r = E.applyBid(g, g.turn, E.aiContre(g, g.turn, diff));
+    assert.ok(r.ok, r.err);
+  }
+}
 
 function playFullRound(game, mode) {
   const g = forceGame(game, 0);
@@ -335,34 +419,26 @@ t('a full AI round plays out legally in every mode', () => {
   }
 });
 
-t('1000 AI rounds stay legal and consistent (mixed modes)', () => {
+t('1000 AI rounds: appel always resolves and the play stays legal', () => {
   for (let i = 0; i < 1000; i++) {
     const g = E.createGame({ seed: 1000 + i, dealer: i % 4, target: 100000 });
     E.startRound(g);
-    let rounds = 0;
-    while (rounds++ < 20) {
-      let guard = 0;
-      while (g.phase === 'maka' && guard++ < 80) {
-        const r = E.applyBid(g, g.turn, E.aiBid(g, g.turn, i % 2 ? 'hard' : 'normal'));
-        assert.ok(r.ok, r.err);
-      }
-      if (g.phase === 'redeal') { E.startRound(g); continue; }
-      if (g.phase === 'contre') E.applyBid(g, g.turn, E.aiContre(g, g.turn, 'normal'));
-      if (g.phase !== 'play') continue;
-      guard = 0;
-      while (g.phase === 'play' && guard++ < 40) {
-        const seat = g.turn;
-        const c = E.aiPlay(g, seat, 'normal');
-        assert.ok(E.legalCards(g.hands[seat], g.trick, g.mode, g.trump).includes(c), 'AI played illegally');
-        const r = E.playCard(g, seat, c);
-        assert.ok(r.ok, r.err);
-      }
-      const want = g.mode === 'TA' ? 258 : g.mode === 'SA' ? 130 : 162;
-      assert.strictEqual(g.roundPoints[0] + g.roundPoints[1], want);
-      const f = g.lastResult.final;
-      assert.ok(f[0] >= 0 && f[1] >= 0);
-      break;
+    runAuction(g, i % 2 ? 'hard' : 'normal');
+    assert.ok(g.phase === 'play', 'auction resolves to play');
+    assert.ok(g.taker != null && g.game != null);
+    for (const h of g.hands) assert.strictEqual(h.length, 8);
+    let guard = 0;
+    while (g.phase === 'play' && guard++ < 40) {
+      const seat = g.turn;
+      const c = E.aiPlay(g, seat, 'normal');
+      assert.ok(E.legalCards(g.hands[seat], g.trick, g.mode, g.trump).includes(c), 'AI played illegally');
+      const r = E.playCard(g, seat, c);
+      assert.ok(r.ok, r.err);
     }
+    const want = g.mode === 'TA' ? 258 : g.mode === 'SA' ? 130 : 162;
+    assert.strictEqual(g.roundPoints[0] + g.roundPoints[1], want);
+    const f = g.lastResult.final;
+    assert.ok(f[0] >= 0 && f[1] >= 0);
   }
 });
 

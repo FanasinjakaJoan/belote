@@ -73,7 +73,8 @@ const get = async (p) => {
   room.addPlayer('me', 'Me', 0);
   room.start();
   const v = room.view('me');
-  ok(v.type === 'state' && v.g.hand.length === 8 && v.g.phase === 'maka', 'browser-side room deals 8 cards offline');
+  ok(v.type === 'state' && v.g.hand.length === 5 && v.g.phase === 'maka' && v.g.stock === 12,
+    'browser-side room deals 5 cards offline (12-card stock, appel opens)');
   room.destroy();
 
   // ── static bundle ────────────────────────────────────────────────────────

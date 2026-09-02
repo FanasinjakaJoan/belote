@@ -151,23 +151,21 @@ class Room {
     const g = this.game;
     const r = E.applyBid(g, seat, action);
     if (!r.ok) return r;
-    if (action.type === 'pass') {
-      this.fx.push({ t: 'pass', seat });
-    } else if (action.type === 'game') {
+    if (action.type === 'game') {
       this.fx.push({ t: 'bid', seat, game: action.game, value: E.GAMES[action.game] });
-      if (r.event === 'taken') this.fx.push({ t: 'take', seat, game: action.game });
+      if (r.event === 'decided') this.fx.push({ t: 'decided', seat, game: action.game, mult: g.mult });
+    } else if (action.type === 'bon') {
+      this.fx.push({ t: 'bon', seat, n: g.bonCount });
+      if (r.event === 'decided') this.fx.push({ t: 'decided', seat, game: g.game, mult: g.mult });
     } else if (action.type === 'contre') {
-      this.fx.push({ t: 'contre', seat, game: g.game });
+      this.fx.push({ t: 'contre', seat, game: g.bidGame || g.game });
+      if (r.event === 'decided') this.fx.push({ t: 'decided', seat, game: g.game, mult: g.mult });
     } else if (action.type === 'surcontre') {
       this.fx.push({ t: 'surcontre', seat, game: g.game });
-    }
-    if (r.event === 'redeal') {
-      this.fx.push({ t: 'redeal' });
-      E.startRound(g);
-      this.fx.push({ t: 'deal' });
+      this.fx.push({ t: 'decided', seat, game: g.game, mult: g.mult });
     }
     this.emit();
-    const delay = r.event === 'taken' ? 800 : (r.event === 'contre' || r.event === 'surcontre') ? 700 : 420;
+    const delay = r.event === 'decided' ? 1100 : (action.type === 'contre' || action.type === 'surcontre') ? 800 : 480;
     this.schedule(delay);
     return r;
   }
@@ -275,6 +273,7 @@ class Room {
     if (you >= 0 && g.phase === 'play' && g.turn === you && !this.display) {
       legal = E.legalCards(hand, g.trick, g.mode, g.trump);
     }
+    const isBidding = g.phase === 'maka' || g.phase === 'contre';
     base.g = {
       phase: g.phase,
       turn: this.display ? -1 : g.turn,
@@ -287,7 +286,8 @@ class Room {
       bidValue: g.bidValue,  // current highest auction bid (dizaines)
       bidGame: g.bidGame,
       bidSeat: g.bidSeat,
-      contreRound: g.contreRound,
+      bonCount: g.bonCount,  // consecutive "bon" since the last call
+      stock: isBidding ? g.stock.length : 0, // visible only while bidding
       scores: g.scores.slice(),
       roundPoints: g.roundPoints.slice(),
       roundNo: g.roundNo,
@@ -300,7 +300,13 @@ class Room {
       legal,
       lastResult: g.lastResult,
       winner: g.winner,
-      canBid: you >= 0 && (g.phase === 'maka' || g.phase === 'contre') && g.turn === you,
+      canBid: you >= 0 && isBidding && g.turn === you,
+      canBon: you >= 0 && isBidding && g.turn === you && g.bidSeat != null &&
+        !(g.phase === 'contre' && g.game == null),
+      canContre: you >= 0 && g.phase === 'maka' && g.turn === you && g.bidSeat != null &&
+        you !== E.partnerOf(g.bidSeat),
+      canSurcontre: you >= 0 && g.phase === 'contre' && g.turn === you && g.bidSeat != null &&
+        you === E.partnerOf(g.bidSeat),
     };
     return base;
   }

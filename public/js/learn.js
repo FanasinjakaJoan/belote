@@ -18,7 +18,8 @@
         '<p><b>Bélote Gasy</b> se joue à <b>4 joueurs</b> répartis en <b>2 équipes de 2</b> (les partenaires sont assis face à face) avec un jeu de <b>32 cartes</b> (du 7 à l’As).</p>',
         '<p>Le vocabulaire malgache essentiel :</p>',
         '<ul class="voc">' +
-          '<li><b>Maka</b> — « prendre » : annoncer le contrat (enchère).</li>' +
+          '<li><b>Appel (maka)</b> — annoncer le contrat ; celui qui appelle est le preneur (<i>mpanaka</i>).</li>' +
+          '<li><b>Bon</b> — accepter le contrat annoncé par l’autre équipe.</li>' +
           '<li><b>Maty</b> — « mort » : le preneur chute, son équipe marque 0 dizaine.</li>' +
           '<li><b>Miboty</b> — couper à l’atout quand on n’a pas la couleur demandée.</li>' +
           '<li><b>Pisser</b> — jeter une carte inutile (permis quand le partenaire est maître).</li>' +
@@ -29,16 +30,17 @@
       ].join(''),
     },
     {
-      h: '2 · Distribution',
+      h: '2 · Distribution en deux temps',
       body: [
-        '<p>On distribue <b>toutes les cartes dès le début</b> : <b>8 cartes par joueur</b> (en paquets de 3-2-3 ou 4-4).</p>',
-        '<p>Il n’y a <b>pas de carte de tourne</b> au milieu et pas de talon : chaque joueur connaît toute sa main avant les enchères.</p>',
+        '<p><b>1. Premier temps :</b> on distribue <b>5 cartes à chaque joueur</b> (en paquets de 3 puis 2). Les <b>12 cartes restantes</b> restent au talon, face cachée.</p>',
+        '<p><b>2. L’appel (les enchères)</b> se fait donc avec seulement <b>5 cartes en main</b> : on ignore encore les 3 cartes du talon.</p>',
+        '<p><b>3. Une fois le jeu décidé,</b> on distribue les <b>3 dernières cartes à chaque joueur</b> (8 cartes en main), puis on joue les plis.</p>',
       ].join(''),
     },
     {
-      h: '3 · Les enchères — « Maka »',
+      h: '3 · Les enchères — l’appel « Maka »',
       body: [
-        '<p>Les enchères se font <b>tour par tour</b> selon la valeur des contrats. À votre tour, vous pouvez <b>passer</b> ou <b>annoncer un jeu</b> :</p>',
+        '<p>L’appel se fait <b>tour par tour</b> selon la valeur des contrats :</p>',
         '<table class="rule-table">' +
           '<tr><th>Jeu annoncé</th><th>Nom local</th><th>Valeur du contrat</th></tr>' +
           '<tr><td>Pique, Cœur, Carreau</td><td>Couleur classique</td><td><b>16 dizaines</b></td></tr>' +
@@ -47,10 +49,12 @@
           '<tr><td>Sans-Atout (SA)</td><td><i>Tsy misy atao</i></td><td><b>52 dizaines</b></td></tr>' +
         '</table>',
         '<ul class="voc">' +
-          '<li>Une enchère doit être d’une <b>valeur égale ou supérieure</b> à l’enchère en cours (à égalité, on peut « voler » le contrat).</li>' +
-          '<li>Après une enchère, <b>3 passes consécutifs</b> clôturent les enchères : le dernier enchérisseur devient le <b>preneur (mpanaka)</b>.</li>' +
-          '<li>Si les <b>4 joueurs passent</b>, on <b>redonne</b> (le donneur change).</li>' +
-          '<li><b>Contre / Surcontre :</b> l’équipe adverse peut <b>contrer</b> (×2) si elle pense que le preneur ne réalisera pas son contrat ; le partenaire du preneur peut alors <b>surcontrer</b> (×4, sauf pour Trèfle et Sans-Atout).</li>' +
+          '<li><b>Le premier joueur qui appelle ne peut pas passer :</b> il choisit entre les quatre couleurs, le Sans-Atout ou le Tout-Atout.</li>' +
+          '<li>Les joueurs suivants n’ont <b>pas le droit d’appeler un jeu inférieur ou égal</b> à l’appel précédent : soit ils disent <b>« bon »</b>, soit ils <b>« contrent »</b>, soit ils font <b>un appel strictement supérieur</b> — et ainsi de suite. (Les quatre couleurs valant toutes 16 dizaines, on ne peut pas « monter » d’une couleur à l’autre.)</li>' +
+          '<li>Le <b>partenaire</b> du dernier appelant ne peut pas annoncer une autre couleur : seuls les adversaires le peuvent. Il peut dire « bon » ou appeler <b>Sans-Atout / Tout-Atout</b>.</li>' +
+          '<li><b>Combien de « bon » ?</b> Pour <b>Sans-Atout et Trèfle, un seul « bon » ferme</b> les enchères. Pour <b>Pique, Cœur, Carreau et Tout-Atout</b>, il faut <b>trois « bon »</b> consécutifs.</li>' +
+          '<li><b>Contre :</b> un joueur (adversaire de l’appelant) qui pense que le contrat ne sera pas réussi peut <b>contrer</b> : les enchères s’arrêtent, le contrat se joue <b>contré (×2)</b>. Le partenaire du preneur peut alors <b>surcontrer (×4)</b> — sauf pour Trèfle et Sans-Atout — ou dire « bon ».</li>' +
+          '<li>Dès que le jeu est décidé, chacun reçoit ses <b>3 dernières cartes</b> et la partie commence.</li>' +
         '</ul>',
       ].join(''),
     },
@@ -138,10 +142,16 @@
 
   const QUIZ = [
     {
-      q: 'Combien de cartes reçoit chaque joueur à la distribution ?',
+      q: 'Combien de cartes reçoit chaque joueur avant l’appel ?',
       opts: ['5 cartes', '8 cartes', '10 cartes', '13 cartes'],
+      a: 0,
+      why: 'L’appel se fait avec 5 cartes en main (3 puis 2). Les 3 cartes restantes ne sont distribuées qu’après la décision du contrat.',
+    },
+    {
+      q: 'Le premier joueur qui appelle peut-il passer ?',
+      opts: ['Oui, s’il a une mauvaise main', 'Non, il doit choisir une couleur, SA ou TA', 'Oui, à condition de dire « bon »', 'Seulement après un contre'],
       a: 1,
-      why: 'On distribue toutes les cartes dès le début : 8 cartes par joueur (paquets de 3-2-3 ou 4-4), sans carte de tourne.',
+      why: 'Le premier appelant ne peut pas passer : il est obligé d’appeler — une couleur, Sans-Atout ou Tout-Atout.',
     },
     {
       q: 'Quel est l’objectif de la partie ?',
@@ -180,6 +190,12 @@
       why: 'Le Trèfle est la couleur spéciale : 64 dizaines — le contrat le plus cher du jeu.',
     },
     {
+      q: 'Un appel de 16 dizaines (Pique) est en cours. Que ne pouvez-vous PAS faire ?',
+      opts: ['Dire « bon »', 'Contrer', 'Appeler Carreau (16 dz)', 'Appeler Sans-Atout (52 dz)'],
+      a: 2,
+      why: '« Bon », le contre et un appel strictement supérieur (Sans-Atout 52, Trèfle 64…) restent possibles. Mais les quatre couleurs valent toutes 16 dizaines : un appel égal n’est pas un appel supérieur, il est donc interdit.',
+    },
+    {
       q: 'Au Tout-Atout, peut-on couper avec une autre couleur ?',
       opts: ['Oui, toujours', 'Non, toutes les couleurs sont atout', 'Oui, si le partenaire est maître', 'Uniquement au dernier pli'],
       a: 1,
@@ -190,6 +206,12 @@
       opts: ['Le Valet', 'Le 9', 'L’As', 'Le 10'],
       a: 2,
       why: 'En Sans-Atout seules les valeurs ordinaires comptent : l’As est la plus forte (A · 10 · R · D · V · 9 · 8 · 7).',
+    },
+    {
+      q: 'Combien de « bon » faut-il pour fixer un appel de Pique (couleur classique) ?',
+      opts: ['1', '2', '3', '4'],
+      a: 2,
+      why: 'Pique, Cœur, Carreau et Tout-Atout demandent trois « bon » consécutifs. Sans-Atout et Trèfle se ferment avec un seul « bon ».',
     },
     {
       q: 'Le preneur chute en Sans-Atout. Qui remporte les 52 dizaines ?',
@@ -208,6 +230,12 @@
       opts: ['1', '2', '3', '4'],
       a: 1,
       why: 'Contre = ×2 ; le surcontre (possible sauf Trèfle et Sans-Atout) monte à ×4.',
+    },
+    {
+      q: 'Qui peut contrer un appel ?',
+      opts: ['Le partenaire de l’appelant', 'Un adversaire de l’équipe appelante', 'N’importe qui, à tout moment', 'Personne avant trois « bon »'],
+      a: 1,
+      why: 'Le contre vient de l’équipe adverse : le partenaire de l’appelant ne peut pas contrer son propre camp (il répond par « bon », un appel SA/TA, puis « surcontre » si son camp a été contré).',
     },
     {
       q: 'En Tout-Atout réussi, comment se répartissent les 26 dizaines ?',

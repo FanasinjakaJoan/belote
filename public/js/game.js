@@ -476,7 +476,7 @@
     const on = !!g.canBid;
     panel.classList.toggle('show', on);
     if (!on) { panel.dataset.sig = ''; return; }
-    const sig = g.phase + g.roundNo + g.bidValue + g.bidSeat + g.contreRound + (g.turn === S.you);
+    const sig = g.phase + g.roundNo + g.bidValue + g.bidSeat + g.bonCount + (g.turn === S.you);
     if (panel.dataset.sig === sig) return;
     panel.dataset.sig = sig;
     bidCursor = 0;
@@ -485,40 +485,55 @@
     const acts = $('#bidActions');
     acts.innerHTML = '';
 
-    if (g.phase === 'maka') {
-      $('#bidTitle').textContent = 'Enchère — Maka';
-      holder.innerHTML = g.bidSeat == null
-        ? '<div class="bid-chip">Aucune enchère — à vous de parler</div>'
+    if (g.phase === 'contre') {
+      // the taker's partner holds the last word after a contre
+      const game = g.bidGame || g.game;
+      $('#bidTitle').textContent = 'Contré ! Le dernier mot…';
+      holder.innerHTML = '<div class="bid-chip">' + GAME_GLYPH[game] + ' ' + GAME_NAME[game] +
+        ' · <b>' + GAME_VAL[game] + ' dz</b> · contré ×2</div>';
+      const s = mkBid('Surcontre ×4', 'take', () => sendBid({ type: 'surcontre' }));
+      s.dataset.kind = 'surcontre';
+      acts.appendChild(s);
+      const b = mkBid('Bon', '', () => sendBid({ type: 'bon' }));
+      b.dataset.kind = 'bon';
+      acts.appendChild(b);
+      $('#bidHint').textContent = 'Y surcontrer ×4 · N bon (contrat joué ×2)';
+    } else {
+      // maka — the first speaker must make an appel
+      const opening = g.bidSeat == null;
+      const partnerTurn = !opening && g.bidSeat != null && (g.bidSeat + 2) % 4 === S.you;
+      $('#bidTitle').textContent = opening ? 'Appel — Maka (obligatoire)' : 'Votre réponse au contrat';
+      const bonNeed = (w.BeloteEngine && w.BeloteEngine.bonsNeeded)
+        ? w.BeloteEngine.bonsNeeded(g.bidGame || 'S') : 3;
+      holder.innerHTML = opening
+        ? '<div class="bid-chip">5 cartes en main — vous devez appeler<br>Restent <b>' + g.stock + '</b> cartes au talon</div>'
         : '<div class="bid-chip">En cours : ' + GAME_GLYPH[g.bidGame] + ' ' + GAME_NAME[g.bidGame] +
-          ' · <b>' + g.bidValue + ' dz</b></div>';
+          ' · <b>' + g.bidValue + ' dz</b> · bon ' + g.bonCount + '/' + bonNeed +
+          (partnerTurn ? '<br><i>Partenaire : Sans-Atout ou Tout-Atout seulement</i>' : '') + '</div>';
       ['S', 'H', 'D', 'C', 'TA', 'SA'].forEach((game) => {
-        const tooLow = g.bidSeat != null && GAME_VAL[game] < g.bidValue;
-        const same = g.bidSeat === S.you && GAME_VAL[game] === g.bidValue;
+        const notHigher = !opening && GAME_VAL[game] <= g.bidValue; // only HIGHER calls
+        const partnerBlock = !opening && partnerTurn && game !== 'TA' && game !== 'SA';
         const b = mkBid(GAME_GLYPH[game] + ' <small>' + GAME_VAL[game] + '</small>',
           'suit' + ((game === 'H' || game === 'D') ? ' red' : '') + (game === 'TA' || game === 'SA' ? ' special' : ''),
           () => sendBid({ type: 'game', game }));
         b.dataset.game = game;
-        if (tooLow || same) { b.disabled = true; b.classList.add('disabled'); }
+        if (notHigher || partnerBlock) { b.disabled = true; b.classList.add('disabled'); }
         b.title = GAME_NAME[game] + ' — ' + GAME_VAL[game] + ' dizaines';
         acts.appendChild(b);
       });
-      acts.appendChild(mkBid('Passer', '', () => sendBid({ type: 'pass' })));
-      const p = acts.lastChild;
-      p.dataset.kind = 'pass';
-      $('#bidHint').textContent = 'S H D C · T Tout-Atout · A Sans-Atout · N passer';
-    } else {
-      // contre / surcontre
-      const sur = g.contreRound === 1;
-      $('#bidTitle').textContent = sur ? 'Surcontrer ?' : 'Contrer le contrat ?';
-      holder.innerHTML = '<div class="bid-chip">' + GAME_GLYPH[g.game] + ' ' + GAME_NAME[g.game] +
-        ' · <b>' + GAME_VAL[g.game] + ' dz</b>' + (g.mult > 1 ? ' · déjà ×' + g.mult : '') + '</div>';
-      const c = mkBid(sur ? 'Surcontre ×4' : 'Contre ×2', 'take', () => sendBid({ type: sur ? 'surcontre' : 'contre' }));
-      c.dataset.kind = sur ? 'surcontre' : 'contre';
-      acts.appendChild(c);
-      const p = mkBid('Passer', '', () => sendBid({ type: 'pass' }));
-      p.dataset.kind = 'pass';
-      acts.appendChild(p);
-      $('#bidHint').textContent = 'Y ' + (sur ? 'surcontrer' : 'contrer') + ' · N passer';
+      if (!opening) {
+        const bon = mkBid('Bon', '', () => sendBid({ type: 'bon' }));
+        bon.dataset.kind = 'bon';
+        acts.appendChild(bon);
+        if (g.canContre) {
+          const c = mkBid('Contre ×2', 'take', () => sendBid({ type: 'contre' }));
+          c.dataset.kind = 'contre';
+          acts.appendChild(c);
+        }
+      }
+      $('#bidHint').textContent = opening
+        ? 'Choisissez un contrat : S H D C · T Tout-Atout · A Sans-Atout'
+        : 'S H D C · T/A · Bon (N) · Contre (C)';
     }
     paintBidCursor();
   }
@@ -549,21 +564,21 @@
         SFX.deal();
         break;
       }
-      case 'pass': {
-        bubble(ev.seat, 'PASS', true);
-        break;
-      }
       case 'bid': {
-        bubble(ev.seat, GAME_NAME[ev.game] + ' ' + ev.value + ' dz');
+        bubble(ev.seat, 'APPEL ' + GAME_NAME[ev.game] + ' · ' + ev.value + ' dz');
+        const c = centerOf($('#seat-' + relDir(ev.seat)));
+        FX.suitPop(c.x, c.y, ev.game === 'TA' ? 'TA' : ev.game === 'SA' ? 'SA' : Cards.glyph(ev.game));
         if (ev.seat !== S.you) SFX.select();
         break;
       }
-      case 'take': {
-        bubble(ev.seat, 'MAKA — ' + GAME_NAME[ev.game] + ' ' + (GAME_VAL[ev.game] || '') + ' dz');
-        const c = centerOf($('#seat-' + relDir(ev.seat)));
-        FX.suitPop(c.x, c.y, ev.game === 'TA' ? 'TA' : ev.game === 'SA' ? 'SA' : Cards.glyph(ev.game));
-        FX.shake(4, 7);
-        if (ev.seat !== S.you) SFX.take();
+      case 'bon': {
+        bubble(ev.seat, 'BON' + (ev.n > 1 ? ' (' + ev.n + ')' : ''));
+        SFX.select();
+        break;
+      }
+      case 'decided': {
+        toast('Contrat fixé — distribution des 3 dernières cartes', true);
+        SFX.deal();
         break;
       }
       case 'contre': {
@@ -735,20 +750,19 @@
 
       if (S.g.canBid) {
         const btns = $$('#bidActions .bid-btn');
-        if (S.g.phase === 'maka') {
-          const map = { s: 'S', h: 'H', d: 'D', c: 'C', t: 'TA', a: 'SA' };
-          if (map[k]) {
-            const b = btns.find((x) => x.dataset.game === map[k] && !x.disabled);
-            if (b) return b.click();
-          }
-          if (k === 'n') { const b = btns.find((x) => x.dataset.kind === 'pass'); if (b) return b.click(); }
-        } else if (S.g.phase === 'contre') {
-          if (k === 'y') {
-            const kind = S.g.contreRound === 0 ? 'contre' : 'surcontre';
-            const b = btns.find((x) => x.dataset.kind === kind);
-            if (b) return b.click();
-          }
-          if (k === 'n') { const b = btns.find((x) => x.dataset.kind === 'pass'); if (b) return b.click(); }
+        const map = { s: 'S', h: 'H', d: 'D', c: 'C', t: 'TA', a: 'SA' };
+        if (map[k]) {
+          const b = btns.find((x) => x.dataset.game === map[k] && !x.disabled);
+          if (b) return b.click();
+        }
+        if (k === 'n') { const b = btns.find((x) => x.dataset.kind === 'bon'); if (b) return b.click(); }
+        if (S.g.phase === 'maka' && k === 'c') {
+          const b = btns.find((x) => x.dataset.kind === 'contre');
+          if (b) return b.click();
+        }
+        if (S.g.phase === 'contre' && k === 'y') {
+          const b = btns.find((x) => x.dataset.kind === 'surcontre');
+          if (b) return b.click();
         }
         if (k === 'arrowleft' || k === 'arrowright') {
           bidCursor = (bidCursor + (k === 'arrowright' ? 1 : btns.length - 1)) % btns.length;

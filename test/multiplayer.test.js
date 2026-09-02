@@ -24,19 +24,19 @@ function client(name) {
       c.state = m;
       const g = m.g;
       if (!g) return;
-      if (!c.firstDeal && g.hand && g.hand.length === 8 && g.phase === 'maka') {
-        c.firstDeal = { hand: g.hand.slice(), upcard: g.upcard, phase: g.phase };
+      if (!c.firstDeal && g.hand && g.hand.length === 5 && g.phase === 'maka') {
+        c.firstDeal = { hand: g.hand.slice(), upcard: g.upcard, phase: g.phase, stock: g.stock };
       }
       const key = g.phase + g.roundNo + g.tricks.join() + g.turn + (g.hand || []).length;
       if (c.lastKey === key) return;
       c.lastKey = key;
       if (g.canBid) {
         c.bids++;
-        // Bélote Gasy: bid Pique (16 dz) on the first opportunity, else pass;
-        // decline every contre prompt.
+        // Bélote Gasy: open with Pique (16 dz) when we are the first caller,
+        // otherwise accept the contract with "bon".
         const action = g.phase === 'maka' && g.bidSeat == null
           ? { type: 'game', game: 'S' }
-          : { type: 'pass' };
+          : { type: 'bon' };
         setTimeout(() => send(c, 'bid', { action }), 60);
       }
       else if (g.phase === 'play' && g.turn === m.you && g.legal.length) {
@@ -83,15 +83,17 @@ const until = async (fn, ms = 30000) => {
   send(host, 'startGame', {});
   const started = await until(() => host.state.room.started && host.state.g);
   ok(started, 'host started the game');
-  ok(host.firstDeal && host.firstDeal.hand.length === 8, 'host was dealt 8 cards');
-  ok(guest.firstDeal && guest.firstDeal.hand.length === 8, 'guest was dealt 8 cards');
+  ok(host.firstDeal && host.firstDeal.hand.length === 5, 'host is dealt 5 cards before the appel');
+  ok(guest.firstDeal && guest.firstDeal.hand.length === 5, 'guest is dealt 5 cards before the appel');
   ok(!host.firstDeal.hand.some((c) => guest.firstDeal.hand.includes(c)), 'hands are disjoint (no card leaks)');
   ok(host.firstDeal.upcard == null && guest.firstDeal.upcard == null, 'no turned-up card in Bélote Gasy');
-  ok(!host.msgs.some((m) => m.type === 'state' && m.g && m.g.counts && m.g.hand && m.g.hand.length > 8),
-    'a client is never sent more than its own eight cards');
+  ok(host.firstDeal.stock === 12 && guest.firstDeal.stock === 12, '12 cards wait in the stock during the appel');
+  ok(!host.msgs.some((m) => m.type === 'state' && m.g && m.g.counts && m.g.hand && m.g.hand.length > 5 &&
+    (m.g.phase === 'maka' || m.g.phase === 'contre')),
+    'a client is never sent more than five cards while bidding');
 
-  const dealt = await until(() => host.state.g.phase === 'play', 25000);
-  ok(dealt, 'auction resolved and the contract is set: ' +
+  const dealt = await until(() => host.state.g.phase === 'play' && host.state.g.hand.length === 8, 30000);
+  ok(dealt, 'the appel resolved and the 3 last cards were dealt: ' +
     (host.state.g.game || '?') + ' (x' + host.state.g.mult + ')');
 
   const done = await until(() => host.state.g.phase === 'roundEnd' || host.state.g.phase === 'gameOver', 90000);

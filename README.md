@@ -24,13 +24,23 @@ pour les tables en ligne. Voir [DEPLOY.md](DEPLOY.md).
 ## Règles (Bélote Gasy)
 
 - **4 joueurs, 2 équipes de 2** (partenaires face à face), **32 cartes**
-  (du 7 à l'As), **8 cartes chacun dès le début** — pas de carte de tourne.
-- **Enchères « maka »** : on annonce un contrat — Pique / Cœur / Carreau
-  (**16 dz**), Trèfle *tsy miharitra* (**64 dz**), Tout-Atout *atao daholo*
-  (**26 dz**), Sans-Atout *tsy misy atao* (**52 dz**). Une enchère égale vole
-  le contrat, 3 passes consécutifs le clôturent, 4 passes → redonne.
-- **Contre / Surcontre** : la défense peut contrer (×2), le partenaire du
-  preneur surcontrer (×4, sauf Trèfle et Sans-Atout).
+  (du 7 à l'As).
+- **Distribution en deux temps** : d'abord **5 cartes par joueur** (3 puis 2),
+  les **12 cartes restantes** restent au talon. **L'appel se fait avec 5
+  cartes**, puis — une fois le jeu décidé — chacun reçoit ses **3 dernières
+  cartes** (8 cartes en main).
+- **Appel « maka »** : le premier joueur qui parle est **obligé d'appeler** —
+  Pique / Cœur / Carreau (**16 dz**), Trèfle *tsy miharitra* (**64 dz**),
+  Tout-Atout *atao daholo* (**26 dz**), Sans-Atout *tsy misy atao* (**52 dz**).
+  Les suivants disent **« bon »**, **« contrent »** ou font un **appel
+  strictement supérieur** (jamais égal ou inférieur). Le partenaire du dernier
+  appelant ne peut pas annoncer une autre couleur (SA / TA seulement).
+  **Sans-Atout et Trèfle se ferment avec un seul « bon »**, Pique / Cœur /
+  Carreau et Tout-Atout avec **trois « bon »** consécutifs.
+- **Contre / Surcontre** : un adversaire peut **contrer** (les enchères
+  s'arrêtent, ×2) ; le partenaire du preneur peut **surcontrer** (×4, sauf
+  Trèfle et Sans-Atout) ou dire « bon » — puis on distribue les 3 dernières
+  cartes et on joue.
 - **Valeurs** : en atout J 20 · 9 14 · A 11 · 10 10 · R 4 · D 3 · 8/7 0 ;
   hors atout A 11 · 10 10 · R 4 · D 3 · V 2 · 9/8/7 0. Manche = 152 points
   de cartes + 10 (dix de der) = 162.
@@ -53,7 +63,7 @@ L'écran **« Règles & Apprendre »** (touche `4`) regroupe :
 - **📖 Règles** — la règle complète en 8 sections (distribution, maka,
   valeurs des cartes, dizaines, tout ou rien, miboty…) avec le vocabulaire
   malgache (maka, maty, miboty, pisser, tsy miharitra…).
-- **🎯 Quiz d'apprentissage** — 13 questions à choix multiples avec
+- **🎯 Quiz d'apprentissage** — 17 questions à choix multiples avec
   explication immédiate, score final et recommencement.
 - **💡 Conseils** — stratégies pratiques (gestion des atouts, enchères,
   contre, dix de der, défense…).
@@ -61,9 +71,11 @@ L'écran **« Règles & Apprendre »** (touche `4`) regroupe :
 ## Fonctionnalités
 
 **Jeu**
-- Règles complètes de la Bélote Gasy : maka, contrats (16/26/52/64 dz),
-  contre/surcontre, comptage en dizaines vers 150, tout ou rien, répartition
-  du Tout-Atout, miboty / monter, dix de der.
+- Règles complètes de la Bélote Gasy : appel sur 5 cartes (premier appelant
+  obligé de parler), bon / contre / appel supérieur, contrats (16/26/52/64 dz),
+  1 « bon » pour SA et Trèfle, 3 pour les autres, contre/surcontre, comptage
+  en dizaines vers 150, tout ou rien, répartition du Tout-Atout,
+  miboty / monter, dix de der.
 - Tables en ligne pour **2, 3 ou 4 humains**, code à 4 lettres partagé,
   match rapide, sièges vides joués par l'IA (reprise de votre siège en
   cas de reconnexion).
