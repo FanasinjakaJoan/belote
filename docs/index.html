@@ -4,8 +4,8 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no" />
 <meta name="theme-color" content="#0a1a14" />
-<title>Belote Royale — online belote card game</title>
-<meta name="description" content="Belote Royale — play classic French belote online with friends or against AI." />
+<title>Bélote Gasy — belote malgache en ligne</title>
+<meta name="description" content="Bélote Gasy — la belote malgache (maka, contrat, dizaines) en ligne avec des amis ou contre l'IA." />
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">
@@ -14,10 +14,10 @@
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-<meta name="apple-mobile-web-app-title" content="Belote Royale" />
+<meta name="apple-mobile-web-app-title" content="Bélote Gasy" />
 <link rel="apple-touch-icon" href="icons/icon-180.png" />
-<meta property="og:title" content="Belote Royale" />
-<meta property="og:description" content="Classic French belote — play online with friends or offline against AI." />
+<meta property="og:title" content="Bélote Gasy" />
+<meta property="og:description" content="Bélote Gasy — la belote malgache : maka, contrat, dizaines, tout-ou-rien. En ligne ou contre l'IA." />
 <meta property="og:image" content="icons/icon-512.png" />
 <link rel="stylesheet" href="css/style.css" />
 </head>
@@ -38,15 +38,15 @@
         </div>
         <div class="scoreboard">
           <div class="team us" id="teamUs">
-            <span class="tlabel">YOUR TEAM</span>
+            <span class="tlabel">NOTRE ÉQUIPE</span>
             <span class="tscore" id="scoreUs">0</span>
           </div>
           <div class="score-sep">
             <div class="round-chip"><span id="roundNo">1</span></div>
-            <div class="target-chip">to <span id="targetVal">501</span></div>
+            <div class="target-chip">sur <span id="targetVal">150</span> dz</div>
           </div>
           <div class="team them" id="teamThem">
-            <span class="tlabel">RIVALS</span>
+            <span class="tlabel">ADVERSES</span>
             <span class="tscore" id="scoreThem">0</span>
           </div>
         </div>
@@ -95,69 +95,67 @@
     <section id="start" class="screen overlay active">
       <div class="deco-cards" aria-hidden="true"></div>
       <div class="panel wide">
-        <h1 class="logo">BELOTE <em>Royale</em></h1>
-        <p class="tagline">Classic French belote — 32 cards, trumps, capots &amp; contracts.</p>
+        <h1 class="logo">BÉLOTE <em>Gasy</em></h1>
+        <p class="tagline">La belote malgache — 32 cartes, maka, contrat &amp; dizaines.</p>
 
         <div class="menu-grid">
           <button class="big-btn primary" id="btnSolo">
             <span class="bb-key">1</span>
-            <span class="bb-title">Play vs AI</span>
-            <span class="bb-sub">Instant table, three bots</span>
+            <span class="bb-title">Jouer vs IA</span>
+            <span class="bb-sub">Table instantanée, trois bots</span>
           </button>
           <button class="big-btn" id="btnCreate">
             <span class="bb-key">2</span>
-            <span class="bb-title">Create table</span>
-            <span class="bb-sub">Invite 1–3 friends by code</span>
+            <span class="bb-title">Créer une table</span>
+            <span class="bb-sub">Invitez 1–3 amis par code</span>
           </button>
           <button class="big-btn" id="btnJoin">
             <span class="bb-key">3</span>
-            <span class="bb-title">Join table</span>
-            <span class="bb-sub">Enter a 4-letter code</span>
+            <span class="bb-title">Rejoindre une table</span>
+            <span class="bb-sub">Entrez un code de 4 lettres</span>
           </button>
           <button class="big-btn" id="btnHow">
             <span class="bb-key">4</span>
-            <span class="bb-title">How to play</span>
-            <span class="bb-sub">Rules &amp; controls</span>
+            <span class="bb-title">Règles &amp; Apprendre</span>
+            <span class="bb-sub">Règles complètes, quiz &amp; conseils</span>
           </button>
         </div>
 
         <div class="opts">
-          <label class="opt">Name
-            <input id="inpName" maxlength="14" placeholder="Player" autocomplete="off" />
+          <label class="opt">Nom
+            <input id="inpName" maxlength="14" placeholder="Joueur" autocomplete="off" />
           </label>
-          <label class="opt">Target
-            <select id="selTarget"><option>301</option><option selected>501</option><option>701</option><option>1001</option></select>
+          <label class="opt">Niveau IA
+            <select id="selDiff"><option value="easy">Facile</option><option value="normal" selected>Normale</option><option value="hard">Difficile</option></select>
           </label>
-          <label class="opt">AI skill
-            <select id="selDiff"><option value="easy">Easy</option><option value="normal" selected>Normal</option><option value="hard">Hard</option></select>
-          </label>
+          <label class="opt static"><span>Objectif</span><b>150 dizaines</b></label>
         </div>
 
         <div class="hs-block">
           <h2>Hall of Fame</h2>
-          <table id="hsTable"><tbody><tr><td class="empty">No games yet — win one!</td></tr></tbody></table>
+          <table id="hsTable"><tbody><tr><td class="empty">Aucune partie — soyez le premier vainqueur !</td></tr></tbody></table>
         </div>
         <div class="row" id="installRow" hidden>
-          <button class="big-btn" id="btnInstall"><span class="bb-title">📲 Install app</span><span class="bb-sub">Play offline, full screen</span></button>
+          <button class="big-btn" id="btnInstall"><span class="bb-title">📲 Installer l'app</span><span class="bb-sub">Hors ligne, plein écran</span></button>
         </div>
-        <p class="foot">Keys: ← → pick · Enter play · P pause · Esc menu</p>
+        <p class="foot">Touches : ← → choisir · Entrée jouer · P pause · Échap menu</p>
       </div>
     </section>
 
     <!-- ══════════════════ JOIN ══════════════════ -->
     <section id="joinScreen" class="screen overlay">
       <div class="panel">
-        <h2>Join a table</h2>
+        <h2>Rejoindre une table</h2>
         <input id="inpCode" class="code-input" maxlength="4" placeholder="CODE" autocomplete="off" spellcheck="false" />
         <div class="row">
-          <button class="big-btn primary" id="btnJoinGo">Join</button>
-          <button class="big-btn" id="btnQuick">Quick match</button>
+          <button class="big-btn primary" id="btnJoinGo">Rejoindre</button>
+          <button class="big-btn" id="btnQuick">Match rapide</button>
         </div>
         <div id="roomList" class="room-list"></div>
-        <label class="opt srv" id="srvRow"><span>Multiplayer server</span>
-          <input id="inpServer" placeholder="https://your-belote-server" autocomplete="off" spellcheck="false" />
+        <label class="opt srv" id="srvRow"><span>Serveur multijoueur</span>
+          <input id="inpServer" placeholder="https://votre-serveur-belote" autocomplete="off" spellcheck="false" />
         </label>
-        <button class="ghost-btn" data-back>Back</button>
+        <button class="ghost-btn" data-back>Retour</button>
       </div>
     </section>
 
@@ -165,36 +163,36 @@
     <section id="lobby" class="screen overlay">
       <div class="panel">
         <h2>Table <span class="code-badge" id="lobbyCode">----</span></h2>
-        <p class="tagline">Share the code. Empty seats are filled by AI.</p>
+        <p class="tagline">Partagez le code. Les sièges vides sont joués par l'IA.</p>
         <div class="lobby-seats" id="lobbySeats"></div>
         <div class="row">
-          <button class="big-btn primary" id="btnStartGame">Start game</button>
-          <button class="ghost-btn" id="btnCopy">Copy code</button>
+          <button class="big-btn primary" id="btnStartGame">Commencer la partie</button>
+          <button class="ghost-btn" id="btnCopy">Copier le code</button>
         </div>
-        <button class="ghost-btn" data-back>Leave</button>
+        <button class="ghost-btn" data-back>Quitter</button>
       </div>
     </section>
 
-    <!-- ══════════════════ BID ══════════════════ -->
+    <!-- ══════════════════ BID (maka) ══════════════════ -->
     <div id="bidPanel" class="floating-panel">
       <div class="bid-inner">
-        <div class="bid-head"><span id="bidTitle">Take this trump?</span></div>
+        <div class="bid-head"><span id="bidTitle">Enchère — Maka</span></div>
         <div class="bid-body">
           <div id="upcardHolder"></div>
           <div class="bid-actions" id="bidActions"></div>
         </div>
-        <div class="bid-hint" id="bidHint">Y / N · tap to choose</div>
+        <div class="bid-hint" id="bidHint">S H D C · T Tout-Atout · A Sans-Atout · N passer</div>
       </div>
     </div>
 
     <!-- ══════════════════ PAUSE ══════════════════ -->
     <section id="pause" class="screen overlay">
       <div class="panel">
-        <h2>Paused</h2>
+        <h2>Pause</h2>
         <div class="row col">
-          <button class="big-btn primary" id="btnResume">Resume</button>
-          <button class="big-btn" id="btnRestart">Restart game</button>
-          <button class="big-btn" id="btnQuit">Quit to menu</button>
+          <button class="big-btn primary" id="btnResume">Reprendre</button>
+          <button class="big-btn" id="btnRestart">Recommencer</button>
+          <button class="big-btn" id="btnQuit">Retour au menu</button>
         </div>
       </div>
     </section>
@@ -202,52 +200,36 @@
     <!-- ══════════════════ ROUND END ══════════════════ -->
     <section id="roundEnd" class="screen overlay">
       <div class="panel">
-        <h2 id="reTitle">Round over</h2>
+        <h2 id="reTitle">Fin de manche</h2>
         <div id="reBody" class="result-body"></div>
-        <button class="big-btn primary" id="btnNextRound">Next round <span class="bb-key">↵</span></button>
+        <button class="big-btn primary" id="btnNextRound">Manche suivante <span class="bb-key">↵</span></button>
       </div>
     </section>
 
     <!-- ══════════════════ GAME OVER ══════════════════ -->
     <section id="gameOver" class="screen overlay">
       <div class="panel">
-        <h2 id="goTitle">Victory!</h2>
+        <h2 id="goTitle">Victoire !</h2>
         <div id="goBody" class="result-body"></div>
         <div class="row">
-          <button class="big-btn primary" id="btnAgain">Play again <span class="bb-key">R</span></button>
+          <button class="big-btn primary" id="btnAgain">Rejouer <span class="bb-key">R</span></button>
           <button class="big-btn" id="btnMenu2">Menu</button>
         </div>
         <div class="hs-block"><h2>Hall of Fame</h2><table id="hsTable2"><tbody></tbody></table></div>
       </div>
     </section>
 
-    <!-- ══════════════════ HOW TO ══════════════════ -->
+    <!-- ══════════════════ RULES · LEARN · TIPS ══════════════════ -->
     <section id="how" class="screen overlay">
       <div class="panel wide scrolly">
-        <h2>How to play</h2>
-        <div class="how-grid">
-          <div>
-            <h3>The goal</h3>
-            <p>Two teams of two (you + the player across). First team to the target score wins. A deal is worth <b>162</b> points.</p>
-            <h3>Bidding</h3>
-            <p>One card is turned up. In turn, <b>take</b> it as trump or <b>pass</b>. If everyone passes, a second round lets you name any other suit. The taker's team must score more than the defenders, or they go <b>dedans</b> and lose everything.</p>
-            <h3>Card order</h3>
-            <p><b>Trump:</b> J&nbsp;20 · 9&nbsp;14 · A&nbsp;11 · 10&nbsp;10 · K&nbsp;4 · Q&nbsp;3 · 8 · 7<br/>
-               <b>Plain:</b> A&nbsp;11 · 10&nbsp;10 · K&nbsp;4 · Q&nbsp;3 · J&nbsp;2 · 9 · 8 · 7</p>
-          </div>
-          <div>
-            <h3>Playing</h3>
-            <p>Follow suit if you can. If trump is led you must play a higher trump when possible. If you cannot follow, you must trump — unless your partner is already winning the trick.</p>
-            <h3>Bonuses</h3>
-            <p><b>Belote &amp; Rebelote</b> — hold K+Q of trump and play both: +20, automatic.<br/>
-               <b>Dix de der</b> — last trick: +10.<br/>
-               <b>Capot</b> — all eight tricks: 252.</p>
-            <h3>Controls</h3>
-            <p><b>Keyboard:</b> ← → select · ↵/Space play · 1–8 quick play · Y/N bid · P pause · R restart · M mute · Esc menu<br/>
-               <b>Touch:</b> tap to lift a card, tap again or flick up to play.</p>
-          </div>
+        <h2>Bélote Gasy — Règles &amp; Apprentissage</h2>
+        <div class="learn-tabs" id="learnTabs">
+          <button class="learn-tab active" data-tab="rules">📖 Règles</button>
+          <button class="learn-tab" data-tab="quiz">🎯 Quiz d'apprentissage</button>
+          <button class="learn-tab" data-tab="tips">💡 Conseils</button>
         </div>
-        <button class="big-btn primary" data-back>Got it</button>
+        <div id="learnBody"></div>
+        <button class="big-btn primary" data-back>Fermer</button>
       </div>
     </section>
 
@@ -262,6 +244,7 @@
 <script src="js/store.js"></script>
 <script src="js/fx.js"></script>
 <script src="js/cards.js"></script>
+<script src="js/learn.js"></script>
 <script src="js/net.js"></script>
 <script src="js/game.js"></script>
 </body>

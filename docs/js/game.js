@@ -7,6 +7,9 @@
   const $$ = (s, r = document) => [...r.querySelectorAll(s)];
   const DIRS = ['s', 'w', 'n', 'e'];
   const SUIT_NAME = { S: 'Spades', H: 'Hearts', D: 'Diamonds', C: 'Clubs' };
+  const GAME_NAME = { S: 'Pique', H: 'Cœur', D: 'Carreau', C: 'Trèfle', TA: 'Tout-Atout', SA: 'Sans-Atout' };
+  const GAME_VAL = (w.BeloteEngine && w.BeloteEngine.GAMES) || { S: 16, H: 16, D: 16, C: 64, TA: 26, SA: 52 };
+  const GAME_GLYPH = { S: '♠', H: '♥', D: '♦', C: '♣', TA: 'TA', SA: 'SA' };
   const isTouch = !matchMedia('(hover: hover)').matches;
 
   let S = null;            // latest server view
@@ -54,7 +57,6 @@
   function boot() {
     const st = Store.settings;
     $('#inpName').value = st.name || '';
-    $('#selTarget').value = st.target;
     $('#selDiff').value = st.difficulty;
     SFX.enabled = st.sound !== false;
     $('#btnSound').classList.toggle('off', !SFX.enabled);
@@ -115,9 +117,9 @@
     Net.send('name', { name: n || 'You' });
   }
   function opts() {
-    const target = +$('#selTarget').value, difficulty = $('#selDiff').value;
-    Store.settings.target = target; Store.settings.difficulty = difficulty; Store.save();
-    return { target, difficulty };
+    const difficulty = $('#selDiff').value;
+    Store.settings.difficulty = difficulty; Store.save();
+    return { target: 150, difficulty }; // Bélote Gasy: first team to 150 dizaines
   }
 
   function wireMenu() {
@@ -138,7 +140,8 @@
       if (!requireServer()) return;
       Net.connect(); pushName(); show('joinScreen'); refreshRooms();
     };
-    $('#btnHow').onclick = () => show('how');
+    if (w.Learn) { w.Learn.init(); $('#btnHow').onclick = () => { w.Learn.open(); show('how'); }; }
+    else $('#btnHow').onclick = () => show('how');
     $$('[data-back]').forEach((b) => (b.onclick = () => { if (S && S.room.started) hideAll(); else { Net.send('leave'); show('start'); } }));
     $('#btnJoinGo').onclick = () => {
       const code = ($('#inpCode').value || '').trim().toUpperCase();
@@ -196,7 +199,7 @@
       r.rooms.forEach((rm) => {
         const d = document.createElement('div');
         d.className = 'room-row';
-        d.innerHTML = '<b>' + rm.code + '</b><span>' + rm.humans + '/4 players · to ' + rm.target + '</span>';
+        d.innerHTML = '<b>' + rm.code + '</b><span>' + rm.humans + '/4 joueurs · à ' + rm.target + ' dz</span>';
         d.onclick = () => Net.send('join', { code: rm.code });
         box.appendChild(d);
       });
@@ -267,11 +270,14 @@
     renderBid(g);
 
     const tb = $('#trumpSuit');
-    const glyph = g.trump ? Cards.glyph(g.trump) : '—';
+    const glyph = g.mode === 'TA' ? 'T-A' : g.mode === 'SA' ? 'S-A' : g.trump ? Cards.glyph(g.trump) : '—';
+    const tlab = $('#trumpBadge .tb-label');
+    const lab = g.mode === 'TA' ? 'TOUT ATOUT' : g.mode === 'SA' ? 'SANS ATOUT' : 'ATOUT';
+    if (tlab.textContent !== lab) tlab.textContent = lab;
     if (tb.textContent !== glyph) {
       tb.textContent = glyph;
-      tb.classList.toggle('red', g.trump === 'H' || g.trump === 'D');
-      if (g.trump) { $('#trumpBadge').classList.remove('pulse'); void $('#trumpBadge').offsetWidth; $('#trumpBadge').classList.add('pulse'); }
+      tb.classList.toggle('red', g.mode === 'C' && (g.trump === 'H' || g.trump === 'D'));
+      if (g.mode) { $('#trumpBadge').classList.remove('pulse'); void $('#trumpBadge').offsetWidth; $('#trumpBadge').classList.add('pulse'); }
     }
     $('#roundNo').textContent = g.roundNo;
     $('#targetVal').textContent = g.target;
@@ -341,7 +347,7 @@
     for (const [dir, card] of want) {
       if (trickEls.has(dir)) continue;
       const slot = $('.slot-' + dir, box);
-      const el = Cards.el(card, g.trump);
+      const el = Cards.el(card, g.mode, g.trump);
       slot.appendChild(el);
       trickEls.set(dir, el);
     }
@@ -378,13 +384,13 @@
     hand.forEach((card, i) => {
       let el = handEls.get(card);
       if (!el) {
-        el = Cards.el(card, g.trump);
+        el = Cards.el(card, g.mode, g.trump);
         el.tabIndex = 0;
         el.addEventListener('pointerdown', (e) => { e.preventDefault(); onCardTap(card); });
         handEls.set(card, el);
         fresh.push(el);
       }
-      el.classList.toggle('trump-card', !!g.trump && card[1] === g.trump);
+      el.classList.toggle('trump-card', g.mode === 'TA' || (g.mode === 'C' && !!g.trump && card[1] === g.trump));
       el.classList.toggle('playable', canPlay && legal.has(card));
       el.classList.toggle('dead', canPlay && !legal.has(card));
       if (box.children[i] !== el) box.insertBefore(el, box.children[i] || null);
@@ -464,51 +470,68 @@
     setTimeout(() => clone.remove(), 360);
   }
 
-  // ─────────────────────────────────────────────────── bidding ──
+  // ─────────────────────────────────────────────────── bidding (maka) ──
   function renderBid(g) {
     const panel = $('#bidPanel');
     const on = !!g.canBid;
     panel.classList.toggle('show', on);
     if (!on) { panel.dataset.sig = ''; return; }
-    const sig = g.phase + g.upcard + g.roundNo;
+    const sig = g.phase + g.roundNo + g.bidValue + g.bidSeat + g.contreRound + (g.turn === S.you);
     if (panel.dataset.sig === sig) return;
     panel.dataset.sig = sig;
     bidCursor = 0;
 
-    $('#bidTitle').textContent = g.phase === 'bid1'
-      ? 'Take ' + Cards.name(g.upcard) + ' as trump?'
-      : 'Name a trump suit?';
     const holder = $('#upcardHolder');
-    holder.innerHTML = '';
-    holder.appendChild(Cards.el(g.upcard, g.upcard[1]));
-
     const acts = $('#bidActions');
     acts.innerHTML = '';
-    if (g.phase === 'bid1') {
-      acts.appendChild(mkBid('Take', 'take', () => sendBid({ type: 'take' })));
-      acts.appendChild(mkBid('Pass', '', () => sendBid({ type: 'pass' })));
-      $('#bidHint').textContent = 'Y take · N pass';
-    } else {
-      ['S', 'H', 'D', 'C'].filter((s) => s !== g.bidSuitTaken).forEach((s) => {
-        const b = mkBid(Cards.glyph(s), 'suit' + (s === 'H' || s === 'D' ? ' red' : ''), () => sendBid({ type: 'takeSuit', suit: s }));
-        b.title = SUIT_NAME[s];
+
+    if (g.phase === 'maka') {
+      $('#bidTitle').textContent = 'Enchère — Maka';
+      holder.innerHTML = g.bidSeat == null
+        ? '<div class="bid-chip">Aucune enchère — à vous de parler</div>'
+        : '<div class="bid-chip">En cours : ' + GAME_GLYPH[g.bidGame] + ' ' + GAME_NAME[g.bidGame] +
+          ' · <b>' + g.bidValue + ' dz</b></div>';
+      ['S', 'H', 'D', 'C', 'TA', 'SA'].forEach((game) => {
+        const tooLow = g.bidSeat != null && GAME_VAL[game] < g.bidValue;
+        const same = g.bidSeat === S.you && GAME_VAL[game] === g.bidValue;
+        const b = mkBid(GAME_GLYPH[game] + ' <small>' + GAME_VAL[game] + '</small>',
+          'suit' + ((game === 'H' || game === 'D') ? ' red' : '') + (game === 'TA' || game === 'SA' ? ' special' : ''),
+          () => sendBid({ type: 'game', game }));
+        b.dataset.game = game;
+        if (tooLow || same) { b.disabled = true; b.classList.add('disabled'); }
+        b.title = GAME_NAME[game] + ' — ' + GAME_VAL[game] + ' dizaines';
         acts.appendChild(b);
       });
-      acts.appendChild(mkBid('Pass', '', () => sendBid({ type: 'pass' })));
-      $('#bidHint').textContent = 'S H D C · N pass';
+      acts.appendChild(mkBid('Passer', '', () => sendBid({ type: 'pass' })));
+      const p = acts.lastChild;
+      p.dataset.kind = 'pass';
+      $('#bidHint').textContent = 'S H D C · T Tout-Atout · A Sans-Atout · N passer';
+    } else {
+      // contre / surcontre
+      const sur = g.contreRound === 1;
+      $('#bidTitle').textContent = sur ? 'Surcontrer ?' : 'Contrer le contrat ?';
+      holder.innerHTML = '<div class="bid-chip">' + GAME_GLYPH[g.game] + ' ' + GAME_NAME[g.game] +
+        ' · <b>' + GAME_VAL[g.game] + ' dz</b>' + (g.mult > 1 ? ' · déjà ×' + g.mult : '') + '</div>';
+      const c = mkBid(sur ? 'Surcontre ×4' : 'Contre ×2', 'take', () => sendBid({ type: sur ? 'surcontre' : 'contre' }));
+      c.dataset.kind = sur ? 'surcontre' : 'contre';
+      acts.appendChild(c);
+      const p = mkBid('Passer', '', () => sendBid({ type: 'pass' }));
+      p.dataset.kind = 'pass';
+      acts.appendChild(p);
+      $('#bidHint').textContent = 'Y ' + (sur ? 'surcontrer' : 'contrer') + ' · N passer';
     }
     paintBidCursor();
   }
   function mkBid(label, cls, fn) {
     const b = document.createElement('button');
     b.className = 'bid-btn ' + cls;
-    b.textContent = label;
+    b.innerHTML = label;
     b.onclick = fn;
     return b;
   }
   function paintBidCursor() {
     const btns = $$('#bidActions .bid-btn');
-    btns.forEach((b, i) => b.classList.toggle('on', i === bidCursor));
+    btns.forEach((b, i) => b.classList.toggle('on', i === bidCursor && !b.disabled));
   }
   let bidLock = 0;
   function sendBid(action) {
@@ -530,12 +553,35 @@
         bubble(ev.seat, 'PASS', true);
         break;
       }
+      case 'bid': {
+        bubble(ev.seat, GAME_NAME[ev.game] + ' ' + ev.value + ' dz');
+        if (ev.seat !== S.you) SFX.select();
+        break;
+      }
       case 'take': {
-        bubble(ev.seat, 'TAKE ' + Cards.glyph(ev.suit));
+        bubble(ev.seat, 'MAKA — ' + GAME_NAME[ev.game] + ' ' + (GAME_VAL[ev.game] || '') + ' dz');
         const c = centerOf($('#seat-' + relDir(ev.seat)));
-        FX.suitPop(c.x, c.y, Cards.glyph(ev.suit));
+        FX.suitPop(c.x, c.y, ev.game === 'TA' ? 'TA' : ev.game === 'SA' ? 'SA' : Cards.glyph(ev.game));
         FX.shake(4, 7);
         if (ev.seat !== S.you) SFX.take();
+        break;
+      }
+      case 'contre': {
+        bubble(ev.seat, 'CONTRÉ ×2');
+        FX.burst(centerOf($('#seat-' + relDir(ev.seat))).x, centerOf($('#seat-' + relDir(ev.seat))).y,
+          { n: 18, colors: ['#ff8b6b', '#e8c37a'], speedMax: 6, lifeMax: 50 });
+        SFX.error();
+        break;
+      }
+      case 'surcontre': {
+        bubble(ev.seat, 'SURCONTRÉ ×4');
+        FX.burst(centerOf($('#seat-' + relDir(ev.seat))).x, centerOf($('#seat-' + relDir(ev.seat))).y,
+          { n: 26, colors: ['#ff5f72', '#e8c37a'], speedMax: 7, lifeMax: 60 });
+        SFX.error();
+        break;
+      }
+      case 'lastTrick': {
+        bubble(ev.seat, 'DIX DE DER +10');
         break;
       }
       case 'play': {
@@ -545,14 +591,6 @@
         const to = centerOf(slot);
         FX.trail(from.x, from.y, to.x, to.y, ['#e8c37a', '#ffffff']);
         SFX.card();
-        break;
-      }
-      case 'belote': {
-        bubble(ev.seat, ev.n === 1 ? 'BELOTE!' : 'REBELOTE! +20');
-        const c = centerOf($('#seat-' + relDir(ev.seat)));
-        FX.burst(c.x, c.y, { n: 30, glyphs: ['♥', '♦', '♠', '♣'], speedMax: 7, lifeMax: 70, fade: true });
-        SFX.belote();
-        FX.shake(6, 9);
         break;
       }
       case 'trick': {
@@ -598,20 +636,20 @@
     const weTook = r.takerTeam === mine;
     const gained = r.final[mine], lost = r.final[1 - mine];
     const good = gained > lost;
-    $('#reTitle').textContent = ({
-      capot: 'CAPOT!', 'capot-defense': 'CAPOT — defence!',
-      contract: 'Contract made', dedans: 'DEDANS!',
-    })[r.outcome] || 'Round over';
+    const gameName = GAME_NAME[r.game] || r.game;
+    const glyph = r.game === 'TA' ? 'TA' : r.game === 'SA' ? 'SA' : Cards.glyph(r.game);
+    const tag = (weTook ? 'VOUS AVEZ PRIS ' : 'ILS ONT PRIS ') + glyph + ' ' + gameName +
+      (r.mult > 1 ? ' (×' + r.mult + ')' : '');
+    $('#reTitle').textContent = r.outcome === 'contract' ? 'CONTRAT RÉUSSI !' : 'MATY ! (chute)';
     $('#reBody').innerHTML =
-      '<div style="text-align:center"><span class="res-tag ' + (good ? 'win' : 'lose') + '">' +
-      (weTook ? 'YOUR TEAM TOOK ' : 'RIVALS TOOK ') + Cards.glyph(r.trump) + '</span></div>' +
-      line('Card points', r.raw[mine] + ' — ' + r.raw[1 - mine]) +
-      line('Tricks', r.tricks[mine] + ' — ' + r.tricks[1 - mine]) +
-      (r.belote != null ? line('Belote & Rebelote', (r.belote === mine ? 'your team' : 'rivals') + ' +20') : '') +
-      line('Round score', '<b style="color:var(--us)">+' + gained + '</b> — <b style="color:var(--them)">+' + lost + '</b>', true) +
-      line('Match', '<b>' + g.scores[mine] + '</b> — <b>' + g.scores[1 - mine] + '</b> (to ' + g.target + ')', true);
+      '<div style="text-align:center"><span class="res-tag ' + (good ? 'win' : 'lose') + '">' + tag + '</span></div>' +
+      line('Points de cartes', r.raw[mine] + ' — ' + r.raw[1 - mine]) +
+      line('Plis', r.tricks[mine] + ' — ' + r.tricks[1 - mine]) +
+      line('Contrat', gameName + ' · ' + r.value + ' dz' + (r.mult > 1 ? ' (contré ×' + r.mult + ')' : '')) +
+      (r.mode === 'TA' && r.outcome === 'contract' ? line('Dizaines (Tout-Atout)', r.diz[mine] + ' — ' + r.diz[1 - mine]) : '') +
+      line('Score de la manche', '<b style="color:var(--us)">+' + gained + '</b> — <b style="color:var(--them)">+' + lost + '</b> dz', true) +
+      line('Match', '<b>' + g.scores[mine] + '</b> — <b>' + g.scores[1 - mine] + '</b> (sur ' + g.target + ' dz)', true);
     show('roundEnd');
-    if (r.outcome === 'capot' || r.outcome === 'capot-defense') { FX.confetti(90); FX.shake(14, 16); }
     if (good) { FX.confetti(50); SFX.round(); } else SFX.pass();
     $('#btnNextRound').style.display = S.room.mode === 'solo' ? '' : 'none';
   }
@@ -621,14 +659,14 @@
     const g = S.g;
     const mine = S.you % 2;
     const won = g.winner === mine;
-    $('#goTitle').textContent = won ? 'VICTORY!' : 'Defeat';
+    $('#goTitle').textContent = won ? 'VICTOIRE !' : 'Défaite';
     $('#goBody').innerHTML =
       '<div style="text-align:center"><span class="res-tag ' + (won ? 'win' : 'lose') + '">' +
-      (won ? 'YOUR TEAM WINS' : 'RIVALS WIN') + '</span></div>' +
-      line('Final score', '<b style="color:var(--us)">' + g.scores[mine] + '</b> — <b style="color:var(--them)">' + g.scores[1 - mine] + '</b>', true) +
-      line('Rounds played', g.roundNo) +
-      line('Target', g.target) +
-      line('Table', S.room.mode === 'solo' ? 'Solo vs AI (' + S.room.difficulty + ')' : 'Online · ' + S.room.humans + ' humans');
+      (won ? 'VOTRE ÉQUIPE GAGNE' : 'L\'ÉQUIPE ADVERSE GAGNE') + '</span></div>' +
+      line('Score final', '<b style="color:var(--us)">' + g.scores[mine] + '</b> — <b style="color:var(--them)">' + g.scores[1 - mine] + '</b> dz', true) +
+      line('Manches jouées', g.roundNo) +
+      line('Objectif', 'Première équipe à ' + g.target + ' dizaines') +
+      line('Table', S.room.mode === 'solo' ? 'Solo vs IA (' + ({ easy: 'Facile', normal: 'Normale', hard: 'Difficile' }[S.room.difficulty] || S.room.difficulty) + ')' : 'En ligne · ' + S.room.humans + ' joueurs');
     if (!scoreSaved) {
       scoreSaved = true;
       Store.addScore({
@@ -648,10 +686,10 @@
     const html = rows.length
       ? rows.map((r, i) =>
         '<tr><td class="hs-rank">' + (i + 1) + '</td>' +
-        '<td>' + (r.won ? '🏆' : '·') + ' ' + (r.mode === 'solo' ? (r.difficulty || 'ai') : 'online') + '</td>' +
-        '<td style="opacity:.6">' + r.rounds + ' rd · to ' + r.target + '</td>' +
+        '<td>' + (r.won ? '🏆' : '·') + ' ' + (r.mode === 'solo' ? (r.difficulty || 'ia') : 'en ligne') + '</td>' +
+        '<td style="opacity:.6">' + r.rounds + ' manches · 150 dz</td>' +
         '<td class="hs-score">' + r.score + '<span style="opacity:.45">–' + r.opp + '</span></td></tr>').join('')
-      : '<tr><td class="empty">No games yet — win one!</td></tr>';
+      : '<tr><td class="empty">Aucune partie — soyez le premier vainqueur !</td></tr>';
     $('#hsTable').innerHTML = '<tbody>' + html + '</tbody>';
     const t2 = $('#hsTable2'); if (t2) t2.innerHTML = '<tbody>' + html + '</tbody>';
   }
@@ -697,18 +735,31 @@
 
       if (S.g.canBid) {
         const btns = $$('#bidActions .bid-btn');
-        if (k === 'y' || k === 't') { const b = btns.find((x) => x.classList.contains('take')); if (b) return b.click(); }
-        if (k === 'n') { const b = btns.find((x) => x.textContent === 'Pass'); if (b) return b.click(); }
-        if (S.g.phase === 'bid2' && 'shdc'.includes(k)) {
-          const glyph = Cards.glyph(k.toUpperCase());
-          const b = btns.find((x) => x.textContent === glyph);
-          if (b) return b.click();
+        if (S.g.phase === 'maka') {
+          const map = { s: 'S', h: 'H', d: 'D', c: 'C', t: 'TA', a: 'SA' };
+          if (map[k]) {
+            const b = btns.find((x) => x.dataset.game === map[k] && !x.disabled);
+            if (b) return b.click();
+          }
+          if (k === 'n') { const b = btns.find((x) => x.dataset.kind === 'pass'); if (b) return b.click(); }
+        } else if (S.g.phase === 'contre') {
+          if (k === 'y') {
+            const kind = S.g.contreRound === 0 ? 'contre' : 'surcontre';
+            const b = btns.find((x) => x.dataset.kind === kind);
+            if (b) return b.click();
+          }
+          if (k === 'n') { const b = btns.find((x) => x.dataset.kind === 'pass'); if (b) return b.click(); }
         }
         if (k === 'arrowleft' || k === 'arrowright') {
           bidCursor = (bidCursor + (k === 'arrowright' ? 1 : btns.length - 1)) % btns.length;
           paintBidCursor(); SFX.select(); return;
         }
-        if (k === 'enter' || k === ' ') { e.preventDefault(); btns[bidCursor] && btns[bidCursor].click(); return; }
+        if (k === 'enter' || k === ' ') {
+          e.preventDefault();
+          const b = btns.find((x, i) => i === bidCursor && !x.disabled) || btns.find((x) => !x.disabled);
+          if (b) b.click();
+          return;
+        }
       }
 
       if (!isMyTurn()) return;

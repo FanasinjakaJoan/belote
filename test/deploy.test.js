@@ -69,11 +69,11 @@ const get = async (p) => {
   ok(ctx.BeloteEngine && ctx.BeloteRooms, 'engine + rooms expose browser globals (no module system)');
 
   // a whole solo game can run with no Node/server APIs at all
-  const room = new ctx.BeloteRooms.Room({ code: 'T', mode: 'solo', target: 301, hostId: 'me' });
+  const room = new ctx.BeloteRooms.Room({ code: 'T', mode: 'solo', target: 150, hostId: 'me' });
   room.addPlayer('me', 'Me', 0);
   room.start();
   const v = room.view('me');
-  ok(v.type === 'state' && v.g.hand.length === 5, 'browser-side room deals a hand offline');
+  ok(v.type === 'state' && v.g.hand.length === 8 && v.g.phase === 'maka', 'browser-side room deals 8 cards offline');
   room.destroy();
 
   // ── static bundle ────────────────────────────────────────────────────────

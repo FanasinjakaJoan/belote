@@ -24,7 +24,7 @@ class Room {
   constructor(opts) {
     this.code = opts.code;
     this.mode = opts.mode || 'online';
-    this.target = opts.target || 501;
+    this.target = opts.target || 150; // match goal, in dizaines
     this.difficulty = opts.difficulty || 'normal';
     this.hostId = opts.hostId || null;
     this.createdAt = now();
@@ -151,15 +151,24 @@ class Room {
     const g = this.game;
     const r = E.applyBid(g, seat, action);
     if (!r.ok) return r;
-    if (action.type === 'pass') this.fx.push({ t: 'pass', seat });
-    else this.fx.push({ t: 'take', seat, suit: g.trump });
+    if (action.type === 'pass') {
+      this.fx.push({ t: 'pass', seat });
+    } else if (action.type === 'game') {
+      this.fx.push({ t: 'bid', seat, game: action.game, value: E.GAMES[action.game] });
+      if (r.event === 'taken') this.fx.push({ t: 'take', seat, game: action.game });
+    } else if (action.type === 'contre') {
+      this.fx.push({ t: 'contre', seat, game: g.game });
+    } else if (action.type === 'surcontre') {
+      this.fx.push({ t: 'surcontre', seat, game: g.game });
+    }
     if (r.event === 'redeal') {
       this.fx.push({ t: 'redeal' });
       E.startRound(g);
       this.fx.push({ t: 'deal' });
     }
     this.emit();
-    this.schedule(r.event === 'taken' ? 700 : 380);
+    const delay = r.event === 'taken' ? 800 : (r.event === 'contre' || r.event === 'surcontre') ? 700 : 420;
+    this.schedule(delay);
     return r;
   }
 
@@ -177,11 +186,13 @@ class Room {
     this.fx.push({ t: 'play', seat, card: cardId });
     let delay = 520;
     for (const ev of r.events || []) {
-      if (ev.type === 'belote') this.fx.push({ t: 'belote', seat: ev.seat, n: ev.n });
       if (ev.type === 'trick') {
         this.display = { trick: ev.cards, winner: ev.winner, points: ev.points };
         this.fx.push({ t: 'trick', winner: ev.winner, points: ev.points });
         delay = 1050;
+      }
+      if (ev.type === 'lastTrick') {
+        this.fx.push({ t: 'lastTrick', seat: ev.seat, team: ev.team });
       }
       if (ev.type === 'roundEnd') {
         this.fx.push({ t: 'roundEnd' });
@@ -224,8 +235,10 @@ class Room {
     if (!this.isBotSeat(seat)) return; // waiting on a human
 
     const diff = this.seats[seat].type === 'ai' ? this.difficulty : 'normal';
-    if (g.phase === 'bid1' || g.phase === 'bid2') {
+    if (g.phase === 'maka') {
       this.applyBid(seat, E.aiBid(g, seat, diff));
+    } else if (g.phase === 'contre') {
+      this.applyBid(seat, E.aiContre(g, seat, diff));
     } else if (g.phase === 'play') {
       const c = E.aiPlay(g, seat, diff);
       this.applyPlay(seat, c);
@@ -260,15 +273,21 @@ class Room {
     const hand = you >= 0 ? g.hands[you].slice() : [];
     let legal = [];
     if (you >= 0 && g.phase === 'play' && g.turn === you && !this.display) {
-      legal = E.legalCards(hand, g.trick, g.trump);
+      legal = E.legalCards(hand, g.trick, g.mode, g.trump);
     }
     base.g = {
       phase: g.phase,
       turn: this.display ? -1 : g.turn,
       dealer: g.dealer,
-      trump: g.trump,
+      mode: g.mode,          // 'C' | 'TA' | 'SA'
+      game: g.game,          // 'S'|'H'|'D'|'C'|'TA'|'SA'
+      trump: g.trump,        // suit letter for colour games, null for TA/SA
       taker: g.taker,
-      upcard: g.phase === 'bid1' || g.phase === 'bid2' ? g.upcard : null,
+      mult: g.mult,          // 1 = bonne · 2 = contré · 4 = surcontré
+      bidValue: g.bidValue,  // current highest auction bid (dizaines)
+      bidGame: g.bidGame,
+      bidSeat: g.bidSeat,
+      contreRound: g.contreRound,
       scores: g.scores.slice(),
       roundPoints: g.roundPoints.slice(),
       roundNo: g.roundNo,
@@ -279,11 +298,9 @@ class Room {
       tricks: [g.tricksWon[0].length, g.tricksWon[1].length],
       hand,
       legal,
-      belote: g.belote,
       lastResult: g.lastResult,
       winner: g.winner,
-      canBid: you >= 0 && (g.phase === 'bid1' || g.phase === 'bid2') && g.turn === you,
-      bidSuitTaken: g.upcard ? g.upcard[1] : null,
+      canBid: you >= 0 && (g.phase === 'maka' || g.phase === 'contre') && g.turn === you,
     };
     return base;
   }

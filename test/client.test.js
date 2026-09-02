@@ -79,12 +79,13 @@ function key(k) {
 
   console.log('client');
   assert($('#start').classList.contains('active'), 'start screen is visible on load');
-  assert($('#hsTable').textContent.includes('No games yet'), 'empty hall of fame renders');
+  assert($('#hsTable').textContent.includes('Aucune partie'), 'empty hall of fame renders');
 
-  // How-to-play opens and closes
+  // Learn screen (rules/quiz/tips) opens and closes
   key('4');
   await sleep(50);
-  assert($('#how').classList.contains('active'), 'keyboard "4" opens how-to-play');
+  assert($('#how').classList.contains('active'), 'keyboard "4" opens the learning screen');
+  assert($$('#learnTabs .learn-tab').length === 3, 'learning screen has rules / quiz / tips tabs');
   key('Escape');
   await sleep(50);
   assert($('#start').classList.contains('active'), 'Escape returns to the menu');
@@ -92,7 +93,7 @@ function key(k) {
   // Start a solo game with keyboard
   let firstDeal = null;
   win.Net.on('state', (m) => {
-    if (!firstDeal && m.g && m.g.hand && m.g.hand.length === 5) {
+    if (!firstDeal && m.g && m.g.hand && m.g.hand.length === 8 && m.g.phase === 'maka') {
       firstDeal = { hand: m.g.hand.slice(), counts: m.g.counts.slice(), upcard: m.g.upcard };
     }
   });
@@ -100,25 +101,25 @@ function key(k) {
   await sleep(1400);
   assert(!$('#start').classList.contains('active'), 'solo game hides the menu');
   assert(win.Net.mode === 'local', 'solo runs on the offline engine, not the network');
-  assert(firstDeal && firstDeal.hand.length === 5, 'first deal gives five cards');
-  assert(firstDeal && firstDeal.counts.every((n) => n === 5), 'all four seats get five cards');
-  assert(firstDeal && !!firstDeal.upcard, 'a card is turned up for bidding');
+  assert(firstDeal && firstDeal.hand.length === 8, 'first deal gives eight cards');
+  assert(firstDeal && firstDeal.counts.every((n) => n === 8), 'all four seats get eight cards');
+  assert(firstDeal && firstDeal.upcard == null, 'no turned-up card in Bélote Gasy');
   assert($$('#hand .card').length > 0, 'cards are rendered in the hand');
   assert($$('#opp-n .mini').length > 0, 'north opponent shows card backs');
 
-  // Bid: take the upcard as soon as it is our turn (else pass through)
-  let took = false;
-  for (let i = 0; i < 40 && !took; i++) {
+  // Maka: bid the cheapest legal contract on our turns, pass on contre
+  for (let i = 0; i < 120 && $('#trumpSuit').textContent === '—'; i++) {
     if ($('#bidPanel').classList.contains('show')) {
-      const take = $$('#bidActions .bid-btn').find((b) => b.classList.contains('take'));
-      if (take) { click(take); took = true; }
-      else { click($$('#bidActions .bid-btn').find((b) => b.textContent === 'Pass')); }
+      const acts = $$('#bidActions .bid-btn');
+      const game = acts.find((b) => b.dataset.game && !b.disabled);
+      const pass = acts.find((b) => b.dataset.kind === 'pass');
+      if (game) click(game); else if (pass) click(pass);
     }
-    await sleep(300);
+    await sleep(250);
   }
   await sleep(2200);
-  assert($('#trumpSuit').textContent !== '—', 'a trump was chosen: ' + $('#trumpSuit').textContent);
-  assert($$('#hand .card').length === 8, 'hand completed to 8 cards, got ' + $$('#hand .card').length);
+  assert($('#trumpSuit').textContent !== '—', 'a contract was chosen: ' + $('#trumpSuit').textContent);
+  assert($$('#hand .card').length === 8, 'hand stays at 8 cards, got ' + $$('#hand .card').length);
 
   // Play a full round through the UI
   let plays = 0, guard = 0;

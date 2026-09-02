@@ -1,14 +1,14 @@
 /* Belote Royale — service worker.
    Precaches the whole app shell so the game (menus, solo vs AI, high scores)
    works with no network at all. Online tables obviously still need one. */
-const VERSION = 'v1.0.0';
+const VERSION = 'v2.0.0';
 const CACHE = 'belote-' + VERSION;
 
 const SHELL = [
   '.', 'index.html', 'manifest.webmanifest',
   'css/style.css',
   'js/config.js', 'js/engine.js', 'js/rooms.js', 'js/local.js',
-  'js/store.js', 'js/fx.js', 'js/cards.js', 'js/net.js', 'js/game.js',
+  'js/store.js', 'js/fx.js', 'js/cards.js', 'js/learn.js', 'js/net.js', 'js/game.js',
   'icons/icon-192.png', 'icons/icon-512.png', 'icons/maskable-512.png',
   'icons/icon-180.png', 'icons/icon-32.png',
 ];
